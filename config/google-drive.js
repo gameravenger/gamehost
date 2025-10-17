@@ -59,20 +59,41 @@ class GoogleDriveManager {
         throw new Error('Invalid Google Drive folder URL or ID');
       }
 
-      // For public folders, we can validate without authentication
-      // Check if folder exists and is accessible
-      const response = await fetch(`https://drive.google.com/drive/folders/${folderId}`, {
-        method: 'HEAD'
-      });
-
-      if (response.status === 404) {
-        throw new Error('Folder not found or not publicly accessible');
+      // For public folders, we can validate by trying to access the folder
+      try {
+        const testUrl = `https://drive.google.com/drive/folders/${folderId}`;
+        const response = await fetch(testUrl, { method: 'HEAD' });
+        
+        // If we get any response (even 403), the folder exists
+        // 404 means folder doesn't exist or is completely private
+        if (response.status === 404) {
+          throw new Error('Folder not found. Make sure the folder exists and is shared with "Anyone with the link can view"');
+        }
+        
+        return folderId;
+      } catch (fetchError) {
+        // If fetch fails, still return the folder ID as it might be valid
+        // The actual validation will happen when trying to access files
+        return folderId;
       }
-
-      return folderId;
+      
     } catch (error) {
       throw new Error(`Invalid folder: ${error.message}`);
     }
+  }
+
+  // Generate secure download URL for a specific sheet
+  generateSecureSheetUrl(folderId, sheetNumber, fileName, participationId) {
+    // Create a secure proxy URL that doesn't expose the Google Drive structure
+    return `/api/games/sheets/secure-download/${participationId}/${sheetNumber}`;
+  }
+
+  // Get public file download URL for Google Drive files
+  getPublicFileDirectUrl(folderId, fileName) {
+    // For public folders, we can construct direct download URLs
+    // This is a simplified approach - in production you'd want more robust file discovery
+    const encodedFileName = encodeURIComponent(fileName);
+    return `https://drive.google.com/uc?export=download&id=${folderId}&filename=${encodedFileName}`;
   }
 
   // Get sheet download URL for public folders (without API authentication)

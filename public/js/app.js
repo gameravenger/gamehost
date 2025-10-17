@@ -155,6 +155,7 @@ class GamePlatform {
         <div class="user-info">
           <span>Welcome, ${this.user.username}</span>
           <div class="user-dropdown">
+            ${this.user.role === 'user' ? '<a href="/dashboard" class="btn btn-secondary">Dashboard</a>' : ''}
             <button class="btn btn-secondary" onclick="app.logout()">Logout</button>
           </div>
         </div>
@@ -165,6 +166,16 @@ class GamePlatform {
     if (authButtons) {
       authButtons.style.display = 'none';
     }
+
+    // Show/hide user-specific navigation
+    const userNavItems = document.querySelectorAll('.user-only-nav');
+    userNavItems.forEach(item => {
+      if (this.user && this.user.role === 'user') {
+        item.style.display = 'inline-block';
+      } else {
+        item.style.display = 'none';
+      }
+    });
   }
 
   updateUIForLoggedOutUser() {
@@ -178,6 +189,12 @@ class GamePlatform {
     if (authButtons) {
       authButtons.style.display = 'block';
     }
+
+    // Hide user-specific navigation
+    const userNavItems = document.querySelectorAll('.user-only-nav');
+    userNavItems.forEach(item => {
+      item.style.display = 'none';
+    });
   }
 
   // Public Data Loading

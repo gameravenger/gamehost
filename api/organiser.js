@@ -497,16 +497,32 @@ router.post('/validate-folder', authenticateOrganiser, async (req, res) => {
     const folderId = googleDrive.extractFolderIdFromUrl(folderUrl);
     
     if (!folderId) {
-      return res.status(400).json({ error: 'Invalid Google Drive folder URL' });
+      return res.status(400).json({ error: 'Invalid Google Drive folder URL. Please provide a valid folder URL or ID.' });
     }
 
     // Validate folder accessibility
-    await googleDrive.validateAndGetFolderId(folderUrl);
-    
-    res.json({ 
-      message: 'Folder is valid and accessible',
-      folderId: folderId
-    });
+    try {
+      const validatedFolderId = await googleDrive.validateAndGetFolderId(folderUrl);
+      
+      res.json({ 
+        message: 'Folder is valid and accessible',
+        folderId: validatedFolderId,
+        folderUrl: `https://drive.google.com/drive/folders/${validatedFolderId}`,
+        instructions: 'Make sure your folder is set to "Anyone with the link can view" for users to download sheets.'
+      });
+      
+    } catch (validationError) {
+      res.status(400).json({ 
+        error: validationError.message,
+        folderId: folderId,
+        suggestions: [
+          'Make sure the folder exists in your Google Drive',
+          'Set folder sharing to "Anyone with the link can view"',
+          'Copy the complete folder URL from your browser',
+          'Or just paste the folder ID (the long string after /folders/)'
+        ]
+      });
+    }
 
   } catch (error) {
     console.error('Error validating folder:', error);

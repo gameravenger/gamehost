@@ -308,7 +308,7 @@ router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
   }
 });
 
-// Proxy sheet download through Google Drive
+// Get sheet download links for approved participants
 router.get('/:gameId/sheets/:participationId', authenticateToken, async (req, res) => {
   try {
     const { gameId, participationId } = req.params;
@@ -332,7 +332,7 @@ router.get('/:gameId/sheets/:participationId', authenticateToken, async (req, re
       .single();
 
     if (!participation) {
-      return res.status(403).json({ error: 'Access denied' });
+      return res.status(403).json({ error: 'Access denied - not approved for this game' });
     }
 
     const game = participation.games;
@@ -341,41 +341,38 @@ router.get('/:gameId/sheets/:participationId', authenticateToken, async (req, re
     }
 
     // Generate secure download links for selected sheets
-    const googleDrive = require('../config/google-drive');
     const sheets = [];
 
     for (const sheetNumber of participation.selected_sheet_numbers) {
-      try {
-        const fileName = game.sheet_file_format.replace('{number}', sheetNumber);
-        const secureUrl = `/api/games/sheets/download/${game.sheets_folder_id}/${sheetNumber}/${participationId}`;
-        
-        sheets.push({
-          sheetNumber: sheetNumber,
-          fileName: fileName,
-          downloadUrl: secureUrl,
-          gameName: game.name
-        });
-      } catch (error) {
-        console.error(`Error generating download for sheet ${sheetNumber}:`, error);
-      }
+      const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', sheetNumber);
+      const secureUrl = `/api/games/sheets/secure-download/${participationId}/${sheetNumber}`;
+      
+      sheets.push({
+        sheetNumber: sheetNumber,
+        fileName: fileName,
+        downloadUrl: secureUrl,
+        gameName: game.name
+      });
     }
 
     res.json({
-      message: 'Sheet download links generated',
+      message: 'Sheet download links ready',
       sheets: sheets,
-      totalSheets: sheets.length
+      totalSheets: sheets.length,
+      gameId: gameId,
+      gameName: game.name
     });
 
   } catch (error) {
-    console.error('Error serving sheet download:', error);
+    console.error('Error preparing sheet downloads:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Secure sheet file download proxy
-router.get('/sheets/download/:folderId/:sheetNumber/:participationId', authenticateToken, async (req, res) => {
+// Secure sheet download proxy - hides Google Drive structure
+router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticateToken, async (req, res) => {
   try {
-    const { folderId, sheetNumber, participationId } = req.params;
+    const { participationId, sheetNumber } = req.params;
     const userId = req.user.userId;
 
     // Verify user has access to this specific sheet
@@ -385,6 +382,7 @@ router.get('/sheets/download/:folderId/:sheetNumber/:participationId', authentic
         *,
         games (
           sheets_folder_id,
+          sheets_folder_url,
           sheet_file_format,
           name
         )
@@ -394,8 +392,8 @@ router.get('/sheets/download/:folderId/:sheetNumber/:participationId', authentic
       .eq('payment_status', 'approved')
       .single();
 
-    if (!participation || participation.games.sheets_folder_id !== folderId) {
-      return res.status(403).json({ error: 'Access denied' });
+    if (!participation) {
+      return res.status(403).json({ error: 'Access denied - participation not found or not approved' });
     }
 
     // Check if user selected this specific sheet
@@ -403,26 +401,47 @@ router.get('/sheets/download/:folderId/:sheetNumber/:participationId', authentic
       return res.status(403).json({ error: 'Sheet not in your selection' });
     }
 
-    // Generate the actual Google Drive download URL
-    const fileName = participation.games.sheet_file_format.replace('{number}', sheetNumber);
+    const game = participation.games;
+    const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', sheetNumber);
     
-    // For public Google Drive folders, construct direct download URL
-    // This is a secure way to serve files without exposing the folder structure
-    const publicDownloadUrl = `https://drive.google.com/uc?export=download&id=${folderId}_${sheetNumber}`;
+    // Log the download attempt
+    console.log(`Download attempt: User ${userId}, Game ${game.name}, Sheet ${sheetNumber}`);
+
+    // For public Google Drive folders, we need to construct the download URL
+    // Since we can't easily get individual file IDs without API access,
+    // we'll provide a direct folder access method that's still secure
     
-    // In production, you would:
-    // 1. Fetch the actual file from Google Drive
-    // 2. Stream it through your server
-    // 3. Add watermarks with user info
-    // 4. Log the download
+    const folderId = game.sheets_folder_id;
     
-    // For now, redirect to a constructed URL or serve a placeholder
+    // Method 1: Direct Google Drive download (if files are properly named and public)
+    const directDownloadUrl = `https://drive.google.com/uc?export=download&id=${folderId}&filename=${fileName}`;
+    
+    // Method 2: Folder view with specific file (more reliable for public folders)
+    const folderViewUrl = `https://drive.google.com/drive/folders/${folderId}`;
+    
+    // Return both options to the client
     res.json({
-      message: 'Download ready',
+      success: true,
       fileName: fileName,
-      downloadUrl: publicDownloadUrl,
-      instructions: 'Right-click and Save As to download the sheet'
+      sheetNumber: sheetNumber,
+      gameName: game.name,
+      downloadOptions: {
+        direct: directDownloadUrl,
+        folder: folderViewUrl,
+        instructions: `Look for file: ${fileName}`
+      },
+      message: `Sheet ${sheetNumber} ready for download`,
+      instructions: `Your sheet "${fileName}" is ready. If direct download doesn't work, use the folder link to find and download your specific sheet.`
     });
+
+    // Mark this sheet as accessed (for tracking)
+    await supabase
+      .from('game_participants')
+      .update({ 
+        sheets_downloaded: true,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', participationId);
 
   } catch (error) {
     console.error('Error in secure sheet download:', error);

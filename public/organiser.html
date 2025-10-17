@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organiser Dashboard - GameBlast Mobile</title>
+    <meta name="description" content="Manage your games and participants on GameBlast Mobile organiser dashboard.">
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#ff6b35">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/organiser.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">GameBlast Mobile</a>
+                
+                <nav class="nav-menu" id="navMenu">
+                    <a href="/">Home</a>
+                    <a href="/games">Games</a>
+                    <a href="/organiser" class="active">Organiser</a>
+                    <a href="/leaderboard">Leaderboard</a>
+                </nav>
+                
+                <div class="user-menu">
+                    <div id="authButtons">
+                        <a href="/login" class="btn btn-secondary">Login</a>
+                    </div>
+                    <div id="userMenu" style="display: none;"></div>
+                    <button class="mobile-menu-toggle" id="mobileMenuToggle">☰</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Login Required Screen -->
+    <div class="login-required-screen" id="loginRequiredScreen">
+        <div class="container">
+            <div class="login-required-content">
+                <h1>Organiser Access Required</h1>
+                <p>Please login with your organiser account to access the dashboard.</p>
+                <div class="login-options">
+                    <a href="/login" class="btn btn-primary">Login as Organiser</a>
+                    <a href="/" class="btn btn-secondary">Back to Home</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Organiser Dashboard -->
+    <div class="organiser-dashboard" id="organiserDashboard" style="display: none;">
+        
+        <!-- Sidebar Navigation -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3>Organiser Panel</h3>
+                <button class="sidebar-toggle" id="sidebarToggle">☰</button>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-section="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-section="profile">
+                    <span class="nav-icon">👤</span>
+                    <span class="nav-text">Profile</span>
+                </a>
+                <a href="#" class="nav-item" data-section="create-game">
+                    <span class="nav-icon">➕</span>
+                    <span class="nav-text">Create Game</span>
+                </a>
+                <a href="#" class="nav-item" data-section="active-games">
+                    <span class="nav-icon">🎮</span>
+                    <span class="nav-text">Active Games</span>
+                </a>
+                <a href="#" class="nav-item" data-section="participants">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Participants</span>
+                </a>
+                <a href="#" class="nav-item" data-section="history">
+                    <span class="nav-icon">📈</span>
+                    <span class="nav-text">History</span>
+                </a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            
+            <!-- Dashboard Section -->
+            <div class="content-section active" id="dashboard-section">
+                <div class="section-header">
+                    <h1>Dashboard Overview</h1>
+                    <p>Welcome back! Here's your organiser summary.</p>
+                </div>
+
+                <!-- Stats Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">🎯</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="totalGamesCreated">0</div>
+                            <div class="stat-label">Total Games</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">🎮</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="activeGamesCount">0</div>
+                            <div class="stat-label">Active Games</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="totalRevenue">₹0</div>
+                            <div class="stat-label">Total Revenue</div>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-info">
+                            <div class="stat-value" id="totalProfit">₹0</div>
+                            <div class="stat-label">Net Profit</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activities -->
+                <div class="dashboard-widgets">
+                    <div class="widget">
+                        <div class="widget-header">
+                            <h3>Recent Games</h3>
+                            <a href="#" onclick="organiserManager.switchSection('active-games')" class="widget-link">View All</a>
+                        </div>
+                        <div class="widget-content" id="recentGamesWidget">
+                            <!-- Recent games will be loaded here -->
+                        </div>
+                    </div>
+                    
+                    <div class="widget">
+                        <div class="widget-header">
+                            <h3>Pending Verifications</h3>
+                            <a href="#" onclick="organiserManager.switchSection('participants')" class="widget-link">View All</a>
+                        </div>
+                        <div class="widget-content" id="pendingVerificationsWidget">
+                            <!-- Pending verifications will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Section -->
+            <div class="content-section" id="profile-section">
+                <div class="section-header">
+                    <h1>Organiser Profile</h1>
+                    <p>Manage your organiser information and settings.</p>
+                </div>
+
+                <div class="profile-container">
+                    <div class="profile-form">
+                        <form id="profileForm">
+                            <div class="form-section">
+                                <h3>Basic Information</h3>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Real Name</label>
+                                        <input type="text" id="realName" readonly>
+                                        <small>Cannot be changed after registration</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Personal Phone</label>
+                                        <input type="tel" id="personalPhone" readonly>
+                                        <small>Cannot be changed after registration</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Email Address</label>
+                                        <input type="email" id="email" readonly>
+                                        <small>Cannot be changed after registration</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Username</label>
+                                        <input type="text" id="username" readonly>
+                                        <small>Cannot be changed after registration</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-section">
+                                <h3>Organiser Settings</h3>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label for="organiserName">Organiser Display Name</label>
+                                        <input type="text" id="organiserName" name="organiserName" required>
+                                        <small>This name will be shown to users</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="whatsappNumber">WhatsApp Number</label>
+                                        <input type="tel" id="whatsappNumber" name="whatsappNumber" placeholder="+91XXXXXXXXXX">
+                                        <small>Users can contact you via WhatsApp</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form-actions">
+                                <button type="submit" class="btn btn-primary">Update Profile</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Create Game Section -->
+            <div class="content-section" id="create-game-section">
+                <div class="section-header">
+                    <h1>Create New Game</h1>
+                    <p>Set up a new game for your participants.</p>
+                </div>
+
+                <div class="game-form-container">
+                    <form id="createGameForm">
+                        <div class="form-section">
+                            <h3>Game Information</h3>
+                            <div class="form-group">
+                                <label for="gameName">Game Name</label>
+                                <input type="text" id="gameName" name="gameName" required placeholder="Enter game name">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="bannerImageUrl">Banner Image URL</label>
+                                <input type="url" id="bannerImageUrl" name="bannerImageUrl" placeholder="https://example.com/banner.jpg">
+                                <small>Upload your banner to a cloud service and paste the URL (Recommended: 400x600px)</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="totalPrize">Total Prize Pool (₹)</label>
+                                <input type="number" id="totalPrize" name="totalPrize" required min="1" placeholder="5000">
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Pricing Structure</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="pricePerSheet1">Price for 1 Sheet (₹)</label>
+                                    <input type="number" id="pricePerSheet1" name="pricePerSheet1" required min="1" placeholder="100">
+                                </div>
+                                <div class="form-group">
+                                    <label for="pricePerSheet2">Price for 2 Sheets (₹ each)</label>
+                                    <input type="number" id="pricePerSheet2" name="pricePerSheet2" required min="1" placeholder="90">
+                                </div>
+                                <div class="form-group">
+                                    <label for="pricePerSheet3Plus">Price for 3+ Sheets (₹ each)</label>
+                                    <input type="number" id="pricePerSheet3Plus" name="pricePerSheet3Plus" required min="1" placeholder="80">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Game Schedule</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="gameDate">Game Date</label>
+                                    <input type="date" id="gameDate" name="gameDate" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="gameTime">Game Time</label>
+                                    <input type="time" id="gameTime" name="gameTime" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Payment & Meeting</h3>
+                            <div class="form-group">
+                                <label for="paymentQrCodeUrl">Payment QR Code URL</label>
+                                <input type="url" id="paymentQrCodeUrl" name="paymentQrCodeUrl" required placeholder="https://example.com/qr-code.jpg">
+                                <small>Upload your UPI QR code image and paste the URL</small>
+                            </div>
+                            
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="zoomLink">Meeting Link (Zoom/Google Meet)</label>
+                                    <input type="url" id="zoomLink" name="zoomLink" placeholder="https://zoom.us/j/123456789">
+                                </div>
+                                <div class="form-group">
+                                    <label for="zoomPassword">Meeting Password</label>
+                                    <input type="text" id="zoomPassword" name="zoomPassword" placeholder="Optional meeting password">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-section">
+                            <h3>Game Sheets</h3>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="sheetsFolderId">Google Drive Folder ID</label>
+                                    <input type="text" id="sheetsFolderId" name="sheetsFolderId" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms">
+                                    <small>Upload sheets to Google Drive and paste the folder ID</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="totalSheets">Total Number of Sheets</label>
+                                    <input type="number" id="totalSheets" name="totalSheets" required min="1" max="10000" placeholder="1000">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary">Create Game</button>
+                            <button type="reset" class="btn btn-secondary">Reset Form</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Active Games Section -->
+            <div class="content-section" id="active-games-section">
+                <div class="section-header">
+                    <h1>Active Games</h1>
+                    <p>Manage your ongoing and upcoming games.</p>
+                </div>
+
+                <div class="games-container">
+                    <div class="games-filters">
+                        <select id="gameStatusFilter" class="filter-select">
+                            <option value="all">All Games</option>
+                            <option value="upcoming">Upcoming</option>
+                            <option value="live">Live</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="organiserManager.switchSection('create-game')">
+                            ➕ Create New Game
+                        </button>
+                    </div>
+
+                    <div class="games-grid" id="activeGamesGrid">
+                        <!-- Active games will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Participants Section -->
+            <div class="content-section" id="participants-section">
+                <div class="section-header">
+                    <h1>Participant Management</h1>
+                    <p>Verify payments and manage game participants.</p>
+                </div>
+
+                <div class="participants-container">
+                    <div class="participants-filters">
+                        <select id="participantGameFilter" class="filter-select">
+                            <option value="all">All Games</option>
+                        </select>
+                        <select id="participantStatusFilter" class="filter-select">
+                            <option value="all">All Status</option>
+                            <option value="pending">Pending Verification</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                    </div>
+
+                    <div class="participants-table-container">
+                        <table class="participants-table" id="participantsTable">
+                            <thead>
+                                <tr>
+                                    <th>User</th>
+                                    <th>Game</th>
+                                    <th>Sheets</th>
+                                    <th>Amount</th>
+                                    <th>UTR ID</th>
+                                    <th>Phone</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="participantsTableBody">
+                                <!-- Participants will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- History Section -->
+            <div class="content-section" id="history-section">
+                <div class="section-header">
+                    <h1>Game History & Analytics</h1>
+                    <p>View your past games and financial performance.</p>
+                </div>
+
+                <div class="history-container">
+                    <!-- Summary Cards -->
+                    <div class="summary-cards">
+                        <div class="summary-card">
+                            <div class="summary-icon">🎯</div>
+                            <div class="summary-info">
+                                <div class="summary-value" id="historyTotalGames">0</div>
+                                <div class="summary-label">Games Completed</div>
+                            </div>
+                        </div>
+                        
+                        <div class="summary-card">
+                            <div class="summary-icon">💰</div>
+                            <div class="summary-info">
+                                <div class="summary-value" id="historyTotalRevenue">₹0</div>
+                                <div class="summary-label">Total Revenue</div>
+                            </div>
+                        </div>
+                        
+                        <div class="summary-card">
+                            <div class="summary-icon">📈</div>
+                            <div class="summary-info">
+                                <div class="summary-value" id="historyTotalProfit">₹0</div>
+                                <div class="summary-label">Net Profit</div>
+                            </div>
+                        </div>
+                        
+                        <div class="summary-card">
+                            <div class="summary-icon">👥</div>
+                            <div class="summary-info">
+                                <div class="summary-value" id="historyTotalParticipants">0</div>
+                                <div class="summary-label">Total Participants</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Export Options -->
+                    <div class="export-section">
+                        <h3>Export Data</h3>
+                        <div class="export-buttons">
+                            <button class="btn btn-secondary" onclick="organiserManager.exportData('games')">
+                                📊 Export Games Data
+                            </button>
+                            <button class="btn btn-secondary" onclick="organiserManager.exportData('participants')">
+                                👥 Export Participants Data
+                            </button>
+                            <button class="btn btn-secondary" onclick="organiserManager.exportData('financial')">
+                                💰 Export Financial Report
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- History Table -->
+                    <div class="history-table-container">
+                        <table class="history-table" id="historyTable">
+                            <thead>
+                                <tr>
+                                    <th>Game Name</th>
+                                    <th>Date</th>
+                                    <th>Prize Pool</th>
+                                    <th>Participants</th>
+                                    <th>Revenue</th>
+                                    <th>Profit/Loss</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="historyTableBody">
+                                <!-- History will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    
+    <!-- Game Edit Modal -->
+    <div id="editGameModal" class="modal">
+        <div class="modal-content large-modal">
+            <span class="close" onclick="closeEditGameModal()">&times;</span>
+            <div id="editGameContent">
+                <!-- Edit game form will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- End Game Modal -->
+    <div id="endGameModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeEndGameModal()">&times;</span>
+            <div class="modal-header">
+                <h2>End Game & Add Winners</h2>
+                <p>Mark this game as completed and add the winners.</p>
+            </div>
+            <form id="endGameForm">
+                <input type="hidden" id="endGameId">
+                
+                <div class="winners-section">
+                    <h3>Winners</h3>
+                    <div class="winner-inputs">
+                        <div class="winner-input">
+                            <label>1st Place Winner</label>
+                            <input type="text" name="winner1" placeholder="Username" required>
+                            <input type="number" name="prize1" placeholder="Prize Amount (₹)" required min="0">
+                        </div>
+                        <div class="winner-input">
+                            <label>2nd Place Winner</label>
+                            <input type="text" name="winner2" placeholder="Username">
+                            <input type="number" name="prize2" placeholder="Prize Amount (₹)" min="0">
+                        </div>
+                        <div class="winner-input">
+                            <label>3rd Place Winner</label>
+                            <input type="text" name="winner3" placeholder="Username">
+                            <input type="number" name="prize3" placeholder="Prize Amount (₹)" min="0">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">End Game & Save Winners</button>
+                    <button type="button" onclick="closeEndGameModal()" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="/js/app.js"></script>
+    <script src="/js/organiser.js"></script>
+</body>
+</html>

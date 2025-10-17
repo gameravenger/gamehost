@@ -1,0 +1,24 @@
+{
+  "name": "mobile-gaming-platform",
+  "version": "1.0.0",
+  "description": "Mobile-first online gaming platform with Tambola and number games",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node server.js",
+    "build": "echo 'Build complete'",
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "@supabase/supabase-js": "^2.38.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "uuid": "^9.0.1"
+  },
+  "engines": {
+    "node": "18.x"
+  }
+}

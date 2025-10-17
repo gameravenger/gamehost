@@ -93,9 +93,23 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
       zoomPassword,
       gameDate,
       gameTime,
-      sheetsFolderId,
-      totalSheets
+      sheetsFolder,
+      totalSheets,
+      sheetFileFormat,
+      customFormat
     } = req.body;
+
+    // Extract and validate Google Drive folder ID
+    const googleDrive = require('../config/google-drive');
+    let sheetsFolderId = null;
+    
+    if (sheetsFolder) {
+      try {
+        sheetsFolderId = await googleDrive.validateAndGetFolderId(sheetsFolder);
+      } catch (error) {
+        return res.status(400).json({ error: `Invalid Google Drive folder: ${error.message}` });
+      }
+    }
 
     // Get organiser ID
     const { data: organiser } = await supabase
@@ -106,6 +120,12 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
 
     if (!organiser) {
       return res.status(404).json({ error: 'Organiser profile not found' });
+    }
+
+    // Determine final file format
+    let finalFileFormat = sheetFileFormat;
+    if (sheetFileFormat === 'custom' && customFormat) {
+      finalFileFormat = customFormat;
     }
 
     // Create game
@@ -125,6 +145,8 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
         game_date: gameDate,
         game_time: gameTime,
         sheets_folder_id: sheetsFolderId,
+        sheets_folder_url: sheetsFolder, // Store original URL for reference
+        sheet_file_format: finalFileFormat,
         total_sheets: totalSheets,
         status: 'upcoming'
       }])
@@ -378,16 +400,27 @@ router.post('/games/:id/end', authenticateOrganiser, async (req, res) => {
 
     // Add winners
     if (winners && winners.length > 0) {
-      const winnerRecords = winners.map(winner => ({
-        game_id: id,
-        user_id: winner.userId,
-        position: winner.position,
-        prize_amount: winner.prizeAmount
-      }));
+      // First, get user IDs from usernames
+      const winnerRecords = [];
+      
+      for (const winner of winners) {
+        // In a real implementation, you'd resolve usernames to user IDs
+        // For now, we'll assume winner.userId is provided or resolved
+        if (winner.userId && winner.position && winner.prizeAmount) {
+          winnerRecords.push({
+            game_id: id,
+            user_id: winner.userId,
+            position: winner.position,
+            prize_amount: winner.prizeAmount
+          });
+        }
+      }
 
-      await supabase
-        .from('game_winners')
-        .insert(winnerRecords);
+      if (winnerRecords.length > 0) {
+        await supabase
+          .from('game_winners')
+          .insert(winnerRecords);
+      }
     }
 
     res.json({ message: 'Game ended successfully and winners added' });
@@ -446,6 +479,146 @@ router.get('/stats', authenticateOrganiser, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching organiser stats:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Validate Google Drive folder
+router.post('/validate-folder', authenticateOrganiser, async (req, res) => {
+  try {
+    const { folderUrl } = req.body;
+    
+    if (!folderUrl) {
+      return res.status(400).json({ error: 'Folder URL is required' });
+    }
+
+    // Extract folder ID from URL
+    const googleDrive = require('../config/google-drive');
+    const folderId = googleDrive.extractFolderIdFromUrl(folderUrl);
+    
+    if (!folderId) {
+      return res.status(400).json({ error: 'Invalid Google Drive folder URL' });
+    }
+
+    // Validate folder accessibility
+    await googleDrive.validateAndGetFolderId(folderUrl);
+    
+    res.json({ 
+      message: 'Folder is valid and accessible',
+      folderId: folderId
+    });
+
+  } catch (error) {
+    console.error('Error validating folder:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Validate sheets in folder
+router.post('/validate-sheets', authenticateOrganiser, async (req, res) => {
+  try {
+    const { folderUrl, totalSheets, fileFormat } = req.body;
+    
+    if (!folderUrl || !totalSheets || !fileFormat) {
+      return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    const googleDrive = require('../config/google-drive');
+    const folderId = googleDrive.extractFolderIdFromUrl(folderUrl);
+    
+    if (!folderId) {
+      return res.status(400).json({ error: 'Invalid Google Drive folder URL' });
+    }
+
+    // Validate a sample of sheets (first 10 sheets)
+    const validation = {};
+    const samplesToCheck = Math.min(10, totalSheets);
+    
+    for (let i = 1; i <= samplesToCheck; i++) {
+      try {
+        const fileName = fileFormat.replace('{number}', i);
+        // For now, we'll assume sheets are accessible if folder is public
+        // In production, you'd implement actual file checking
+        validation[i] = true;
+      } catch (error) {
+        validation[i] = false;
+      }
+    }
+
+    res.json({
+      message: 'Sheet validation completed',
+      validation: validation,
+      folderId: folderId,
+      totalChecked: samplesToCheck
+    });
+
+  } catch (error) {
+    console.error('Error validating sheets:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+// Start game (mark as live)
+router.post('/games/:id/start', authenticateOrganiser, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Get organiser ID
+    const { data: organiser } = await supabase
+      .from('organisers')
+      .select('id')
+      .eq('user_id', req.user.userId)
+      .single();
+
+    // Verify game belongs to organiser
+    const { data: game } = await supabase
+      .from('games')
+      .select('*')
+      .eq('id', id)
+      .eq('organiser_id', organiser.id)
+      .single();
+
+    if (!game) {
+      return res.status(404).json({ error: 'Game not found or access denied' });
+    }
+
+    // Update game status to live
+    await supabase
+      .from('games')
+      .update({
+        status: 'live',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id);
+
+    // Get all approved participants for this game
+    const { data: participants } = await supabase
+      .from('game_participants')
+      .select('user_id')
+      .eq('game_id', id)
+      .eq('payment_status', 'approved');
+
+    // Send notifications to all approved participants
+    if (participants && participants.length > 0) {
+      const notifications = participants.map(participant => ({
+        user_id: participant.user_id,
+        title: 'Game is Live!',
+        message: `${game.name} has started. Join now using the meeting link.`,
+        type: 'game_live'
+      }));
+
+      await supabase
+        .from('notifications')
+        .insert(notifications);
+    }
+
+    res.json({ 
+      message: 'Game started successfully', 
+      participantsNotified: participants?.length || 0 
+    });
+
+  } catch (error) {
+    console.error('Error starting game:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

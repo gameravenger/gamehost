@@ -85,6 +85,37 @@ class OrganiserManager {
       const today = new Date().toISOString().split('T')[0];
       gameDate.min = today;
     }
+
+    // Google Drive folder validation
+    document.getElementById('sheetsFolder')?.addEventListener('blur', (e) => {
+      this.validateGoogleDriveFolder(e.target.value);
+    });
+
+    // Sheet format change handler
+    document.getElementById('sheetFileFormat')?.addEventListener('change', (e) => {
+      const customGroup = document.getElementById('customFormatGroup');
+      if (e.target.value === 'custom') {
+        customGroup.style.display = 'block';
+      } else {
+        customGroup.style.display = 'none';
+      }
+      this.updateSheetsPreview();
+    });
+
+    // Custom format input
+    document.getElementById('customFormat')?.addEventListener('input', () => {
+      this.updateSheetsPreview();
+    });
+
+    // Total sheets change
+    document.getElementById('totalSheets')?.addEventListener('input', () => {
+      this.updateSheetsPreview();
+    });
+
+    // Validate sheets button
+    document.getElementById('validateSheetsBtn')?.addEventListener('click', () => {
+      this.validateSheetsAccess();
+    });
   }
 
   switchSection(section) {
@@ -249,6 +280,17 @@ class OrganiserManager {
   async createGame() {
     try {
       const formData = new FormData(document.getElementById('createGameForm'));
+      
+      // Extract Google Drive folder ID from URL
+      const sheetsFolder = formData.get('sheetsFolder');
+      const googleDrive = require('../config/google-drive');
+      let sheetsFolderId = null;
+      
+      if (sheetsFolder) {
+        // This will be handled on the server side
+        sheetsFolderId = sheetsFolder;
+      }
+
       const data = {
         name: formData.get('gameName'),
         bannerImageUrl: formData.get('bannerImageUrl'),
@@ -261,8 +303,10 @@ class OrganiserManager {
         zoomPassword: formData.get('zoomPassword'),
         gameDate: formData.get('gameDate'),
         gameTime: formData.get('gameTime'),
-        sheetsFolderId: formData.get('sheetsFolderId'),
-        totalSheets: parseInt(formData.get('totalSheets'))
+        sheetsFolder: sheetsFolderId,
+        totalSheets: parseInt(formData.get('totalSheets')),
+        sheetFileFormat: formData.get('sheetFileFormat'),
+        customFormat: formData.get('customFormat')
       };
 
       const response = await app.apiCall('/organiser/games', 'POST', data);
@@ -270,6 +314,8 @@ class OrganiserManager {
       
       // Reset form and switch to active games
       document.getElementById('createGameForm').reset();
+      document.getElementById('sheetsPreview').style.display = 'none';
+      document.getElementById('folderValidation').style.display = 'none';
       this.switchSection('active-games');
       
     } catch (error) {
@@ -336,8 +382,13 @@ class OrganiserManager {
             <button class="btn btn-primary btn-sm" onclick="organiserManager.viewParticipants('${game.id}')">
               Participants
             </button>
+            ${game.status === 'upcoming' ? `
+              <button class="btn btn-success btn-sm" onclick="organiserManager.startGame('${game.id}')">
+                Start Game
+              </button>
+            ` : ''}
             ${game.status === 'live' ? `
-              <button class="btn btn-success btn-sm" onclick="organiserManager.showEndGameModal('${game.id}')">
+              <button class="btn btn-danger btn-sm" onclick="organiserManager.showEndGameModal('${game.id}')">
                 End Game
               </button>
             ` : ''}
@@ -487,6 +538,23 @@ class OrganiserManager {
     app.showNotification('Game editing feature coming soon', 'info');
   }
 
+  async startGame(gameId) {
+    try {
+      if (!confirm('Are you sure you want to start this game? All approved participants will be notified.')) {
+        return;
+      }
+
+      const response = await app.apiCall(`/organiser/games/${gameId}/start`, 'POST');
+      app.showNotification(`Game started! ${response.participantsNotified} participants notified.`, 'success');
+      
+      // Reload games to show updated status
+      await this.loadActiveGames();
+      
+    } catch (error) {
+      app.showNotification(error.message || 'Failed to start game', 'error');
+    }
+  }
+
   showEndGameModal(gameId) {
     document.getElementById('endGameId').value = gameId;
     document.getElementById('endGameModal').style.display = 'block';
@@ -603,6 +671,124 @@ class OrganiserManager {
 
   exportData(type) {
     app.showNotification(`${type} data export coming soon`, 'info');
+  }
+
+  // Google Drive folder validation
+  async validateGoogleDriveFolder(folderUrl) {
+    const validation = document.getElementById('folderValidation');
+    const statusSpan = validation.querySelector('.validation-status');
+    
+    if (!folderUrl) {
+      validation.style.display = 'none';
+      return;
+    }
+
+    validation.style.display = 'block';
+    validation.className = 'folder-validation loading';
+    statusSpan.textContent = '🔄 Validating folder...';
+
+    try {
+      const response = await app.apiCall('/organiser/validate-folder', 'POST', {
+        folderUrl: folderUrl
+      });
+
+      validation.className = 'folder-validation success';
+      statusSpan.textContent = '✅ Folder is accessible and valid';
+      
+      this.updateSheetsPreview();
+      
+    } catch (error) {
+      validation.className = 'folder-validation error';
+      statusSpan.textContent = `❌ ${error.message}`;
+    }
+  }
+
+  // Update sheets preview based on format and count
+  updateSheetsPreview() {
+    const totalSheets = parseInt(document.getElementById('totalSheets')?.value) || 0;
+    const format = document.getElementById('sheetFileFormat')?.value;
+    const customFormat = document.getElementById('customFormat')?.value;
+    const preview = document.getElementById('sheetsPreview');
+    const samples = document.getElementById('previewSamples');
+
+    if (totalSheets === 0) {
+      preview.style.display = 'none';
+      return;
+    }
+
+    preview.style.display = 'block';
+    
+    // Generate sample file names
+    let fileFormat = format;
+    if (format === 'custom' && customFormat) {
+      fileFormat = customFormat;
+    }
+
+    const sampleNumbers = [1, 2, 3, Math.min(10, totalSheets), Math.min(100, totalSheets), totalSheets];
+    const uniqueNumbers = [...new Set(sampleNumbers)].filter(n => n <= totalSheets);
+
+    samples.innerHTML = uniqueNumbers.map(num => {
+      let fileName = fileFormat.replace('{number}', num);
+      return `<div class="preview-sample">${fileName}</div>`;
+    }).join('');
+  }
+
+  // Validate sheets access
+  async validateSheetsAccess() {
+    const folderUrl = document.getElementById('sheetsFolder')?.value;
+    const totalSheets = parseInt(document.getElementById('totalSheets')?.value) || 0;
+    const format = document.getElementById('sheetFileFormat')?.value;
+    const customFormat = document.getElementById('customFormat')?.value;
+
+    if (!folderUrl || totalSheets === 0) {
+      app.showNotification('Please fill in folder URL and total sheets first', 'warning');
+      return;
+    }
+
+    try {
+      app.showNotification('🔍 Validating sheet access...', 'info');
+
+      let fileFormat = format;
+      if (format === 'custom' && customFormat) {
+        fileFormat = customFormat;
+      }
+
+      const response = await app.apiCall('/organiser/validate-sheets', 'POST', {
+        folderUrl: folderUrl,
+        totalSheets: totalSheets,
+        fileFormat: fileFormat
+      });
+
+      const samples = document.getElementById('previewSamples');
+      const sampleResults = response.validation || {};
+      
+      // Update preview with validation results
+      samples.querySelectorAll('.preview-sample').forEach((sample, index) => {
+        const fileName = sample.textContent;
+        const sheetNumber = this.extractNumberFromFileName(fileName, fileFormat);
+        
+        if (sampleResults[sheetNumber]) {
+          sample.classList.add('available');
+          sample.title = 'Sheet is accessible';
+        } else {
+          sample.classList.add('missing');
+          sample.title = 'Sheet not found or not accessible';
+        }
+      });
+
+      const availableCount = Object.keys(sampleResults).length;
+      app.showNotification(`✅ Validated: ${availableCount} sheets accessible`, 'success');
+
+    } catch (error) {
+      app.showNotification(`❌ Validation failed: ${error.message}`, 'error');
+    }
+  }
+
+  extractNumberFromFileName(fileName, format) {
+    const pattern = format.replace('{number}', '(\\d+)');
+    const regex = new RegExp(pattern);
+    const match = fileName.match(regex);
+    return match ? parseInt(match[1]) : null;
   }
 }
 

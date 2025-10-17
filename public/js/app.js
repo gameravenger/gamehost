@@ -14,6 +14,13 @@ class GamePlatform {
     this.setupEventListeners();
     this.checkAuthStatus();
     this.loadPublicData();
+    
+    // Load notifications for logged-in users
+    if (this.token) {
+      this.loadNotifications();
+      // Check for new notifications every 30 seconds
+      setInterval(() => this.loadNotifications(), 30000);
+    }
   }
 
   // Authentication Methods
@@ -389,6 +396,108 @@ class GamePlatform {
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+
+  // Load and display notifications
+  async loadNotifications() {
+    if (!this.token) return;
+
+    try {
+      const response = await this.apiCall('/users/notifications');
+      const notifications = response.notifications || [];
+      
+      // Show unread notifications
+      const unreadNotifications = notifications.filter(n => !n.is_read);
+      
+      if (unreadNotifications.length > 0) {
+        this.displayNotificationBadge(unreadNotifications.length);
+        
+        // Show game live notifications immediately
+        const liveGameNotifications = unreadNotifications.filter(n => n.type === 'game_live');
+        liveGameNotifications.forEach(notification => {
+          this.showGameLiveNotification(notification);
+          this.markNotificationAsRead(notification.id);
+        });
+      }
+      
+    } catch (error) {
+      console.error('Error loading notifications:', error);
+    }
+  }
+
+  // Display notification badge in header
+  displayNotificationBadge(count) {
+    const userMenu = document.getElementById('userMenu');
+    if (!userMenu) return;
+
+    let badge = userMenu.querySelector('.notification-badge');
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'notification-badge';
+      userMenu.appendChild(badge);
+    }
+
+    if (count > 0) {
+      badge.textContent = count;
+      badge.style.display = 'inline-block';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  // Show game live notification with meeting link
+  showGameLiveNotification(notification) {
+    const notificationEl = document.createElement('div');
+    notificationEl.className = 'live-game-notification';
+    notificationEl.innerHTML = `
+      <div class="notification-content">
+        <h4>🔴 ${notification.title}</h4>
+        <p>${notification.message}</p>
+        <div class="notification-actions">
+          <button class="btn btn-primary" onclick="app.joinGameMeeting('${notification.game_id}')">
+            Join Meeting
+          </button>
+          <button class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">
+            Dismiss
+          </button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(notificationEl);
+
+    // Auto-remove after 30 seconds
+    setTimeout(() => {
+      if (notificationEl.parentElement) {
+        notificationEl.remove();
+      }
+    }, 30000);
+  }
+
+  // Mark notification as read
+  async markNotificationAsRead(notificationId) {
+    try {
+      await this.apiCall(`/users/notifications/${notificationId}/read`, 'PUT');
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  }
+
+  // Join game meeting
+  async joinGameMeeting(gameId) {
+    try {
+      const response = await this.apiCall(`/games/${gameId}`);
+      const game = response.game;
+      
+      if (game.zoom_link) {
+        window.open(game.zoom_link, '_blank');
+        this.showNotification('Opening meeting link...', 'success');
+      } else {
+        this.showNotification('Meeting link not available', 'error');
+      }
+    } catch (error) {
+      this.showNotification('Failed to get meeting link', 'error');
+    }
   }
 }
 

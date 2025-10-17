@@ -308,16 +308,57 @@
 
                         <div class="form-section">
                             <h3>Game Sheets</h3>
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="sheetsFolderId">Google Drive Folder ID</label>
-                                    <input type="text" id="sheetsFolderId" name="sheetsFolderId" placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms">
-                                    <small>Upload sheets to Google Drive and paste the folder ID</small>
+                            <div class="sheets-instructions">
+                                <h4>📁 How to Upload Sheets:</h4>
+                                <ol>
+                                    <li>Create a folder in your Google Drive</li>
+                                    <li>Upload all game sheets (PDF format recommended)</li>
+                                    <li>Name files as: Sheet_1.pdf, Sheet_2.pdf, etc.</li>
+                                    <li>Make folder <strong>publicly viewable</strong> (Anyone with link can view)</li>
+                                    <li>Copy the folder URL and paste below</li>
+                                </ol>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="sheetsFolder">Google Drive Folder URL or ID</label>
+                                <input type="text" id="sheetsFolder" name="sheetsFolder" required 
+                                       placeholder="https://drive.google.com/drive/folders/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms">
+                                <small>Paste your Google Drive folder URL or just the folder ID</small>
+                                <div class="folder-validation" id="folderValidation" style="display: none;">
+                                    <span class="validation-status"></span>
                                 </div>
+                            </div>
+                            
+                            <div class="form-row">
                                 <div class="form-group">
                                     <label for="totalSheets">Total Number of Sheets</label>
                                     <input type="number" id="totalSheets" name="totalSheets" required min="1" max="10000" placeholder="1000">
+                                    <small>Total sheets available in your folder</small>
                                 </div>
+                                <div class="form-group">
+                                    <label for="sheetFileFormat">Sheet File Format</label>
+                                    <select id="sheetFileFormat" name="sheetFileFormat">
+                                        <option value="Sheet_{number}.pdf">Sheet_1.pdf, Sheet_2.pdf, ...</option>
+                                        <option value="{number}.pdf">1.pdf, 2.pdf, ...</option>
+                                        <option value="sheet_{number}.pdf">sheet_1.pdf, sheet_2.pdf, ...</option>
+                                        <option value="custom">Custom Format</option>
+                                    </select>
+                                    <small>How your sheet files are named</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group" id="customFormatGroup" style="display: none;">
+                                <label for="customFormat">Custom File Format</label>
+                                <input type="text" id="customFormat" name="customFormat" placeholder="MySheet_{number}.pdf">
+                                <small>Use {number} where the sheet number should be. Example: MySheet_{number}.pdf</small>
+                            </div>
+                            
+                            <div class="sheets-preview" id="sheetsPreview" style="display: none;">
+                                <h4>📋 Sheets Preview:</h4>
+                                <div class="preview-samples" id="previewSamples"></div>
+                                <button type="button" class="btn btn-secondary" id="validateSheetsBtn">
+                                    🔍 Validate Sheets Access
+                                </button>
                             </div>
                         </div>
 

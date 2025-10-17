@@ -50,6 +50,8 @@ CREATE TABLE games (
     game_time TIME,
     status VARCHAR(20) DEFAULT 'upcoming' CHECK (status IN ('upcoming', 'live', 'ended')),
     sheets_folder_id TEXT, -- Google Drive folder ID for sheets
+    sheets_folder_url TEXT, -- Original Google Drive folder URL
+    sheet_file_format TEXT DEFAULT 'Sheet_{number}.pdf', -- File naming format
     total_sheets INTEGER DEFAULT 0,
     registered_participants INTEGER DEFAULT 0,
     is_featured BOOLEAN DEFAULT false,

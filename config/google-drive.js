@@ -30,36 +30,100 @@ class GoogleDriveManager {
     }
   }
 
-  async getSheetDownloadUrl(folderId, sheetNumber, participantId) {
+  // Extract folder ID from Google Drive URL
+  extractFolderIdFromUrl(url) {
+    if (!url) return null;
+    
+    // Handle different Google Drive URL formats
+    const patterns = [
+      /\/folders\/([a-zA-Z0-9-_]+)/,  // Standard folder URL
+      /id=([a-zA-Z0-9-_]+)/,          // Alternative format
+      /^([a-zA-Z0-9-_]+)$/            // Direct folder ID
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+    
+    return null;
+  }
+
+  // Validate if the folder is accessible and public
+  async validateAndGetFolderId(folderUrlOrId) {
     try {
-      if (!this.drive) {
-        throw new Error('Google Drive not initialized');
+      const folderId = this.extractFolderIdFromUrl(folderUrlOrId);
+      if (!folderId) {
+        throw new Error('Invalid Google Drive folder URL or ID');
       }
 
-      // List files in the folder
-      const response = await this.drive.files.list({
-        q: `'${folderId}' in parents and name contains '${sheetNumber}'`,
-        fields: 'files(id, name, webContentLink, webViewLink)'
+      // For public folders, we can validate without authentication
+      // Check if folder exists and is accessible
+      const response = await fetch(`https://drive.google.com/drive/folders/${folderId}`, {
+        method: 'HEAD'
       });
 
-      const files = response.data.files;
-      if (files.length === 0) {
-        throw new Error(`Sheet ${sheetNumber} not found`);
+      if (response.status === 404) {
+        throw new Error('Folder not found or not publicly accessible');
       }
 
-      const file = files[0];
+      return folderId;
+    } catch (error) {
+      throw new Error(`Invalid folder: ${error.message}`);
+    }
+  }
+
+  // Get sheet download URL for public folders (without API authentication)
+  async getSheetDownloadUrl(folderId, sheetNumber, participantId) {
+    try {
+      // For public folders, we construct direct download URLs
+      // This avoids API authentication issues while keeping links secure
       
-      // Generate a temporary download link
-      // In production, you might want to create a signed URL or proxy the download
+      // Generate a secure proxy URL through our server
+      const proxyUrl = `/api/games/sheets/download/${folderId}/${sheetNumber}/${participantId}`;
+      
       return {
-        fileId: file.id,
-        fileName: file.name,
-        downloadUrl: file.webContentLink,
-        viewUrl: file.webViewLink
+        sheetNumber: sheetNumber,
+        downloadUrl: proxyUrl,
+        fileName: `Sheet_${sheetNumber}.pdf`,
+        participantId: participantId
       };
 
     } catch (error) {
       console.error('Error getting sheet download URL:', error);
+      throw error;
+    }
+  }
+
+  // Get direct Google Drive download URL for public files
+  getPublicFileDownloadUrl(fileId) {
+    return `https://drive.google.com/uc?export=download&id=${fileId}`;
+  }
+
+  // Search for sheet files in public folder
+  async findSheetInPublicFolder(folderId, sheetNumber) {
+    try {
+      // For public folders, we'll use a different approach
+      // We'll construct expected file names and try to access them
+      const possibleNames = [
+        `${sheetNumber}.pdf`,
+        `Sheet_${sheetNumber}.pdf`,
+        `sheet_${sheetNumber}.pdf`,
+        `${String(sheetNumber).padStart(3, '0')}.pdf`,
+        `Sheet_${String(sheetNumber).padStart(3, '0')}.pdf`
+      ];
+
+      // Return the most likely file pattern
+      return {
+        folderId: folderId,
+        sheetNumber: sheetNumber,
+        possibleNames: possibleNames
+      };
+
+    } catch (error) {
+      console.error('Error finding sheet in folder:', error);
       throw error;
     }
   }

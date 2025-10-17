@@ -61,6 +61,18 @@ app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
+app.get('/privacy-policy', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'privacy-policy.html'));
+});
+
+app.get('/terms-conditions', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'terms-conditions.html'));
+});
+
+app.get('/disclaimer', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'disclaimer.html'));
+});
+
 // Handle 404
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

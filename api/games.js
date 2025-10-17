@@ -256,4 +256,95 @@ router.get('/user/participations', authenticateToken, async (req, res) => {
   }
 });
 
+// Download sheets (only for approved participants)
+router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
+  try {
+    const { id: gameId } = req.params;
+    const userId = req.user.userId;
+
+    // Check if user is approved participant
+    const { data: participation, error } = await supabase
+      .from('game_participants')
+      .select('*')
+      .eq('game_id', gameId)
+      .eq('user_id', userId)
+      .eq('payment_status', 'approved')
+      .single();
+
+    if (error || !participation) {
+      return res.status(403).json({ error: 'You are not approved for this game or not registered' });
+    }
+
+    // Get game details with sheets folder
+    const { data: game } = await supabase
+      .from('games')
+      .select('sheets_folder_id, name')
+      .eq('id', gameId)
+      .single();
+
+    if (!game || !game.sheets_folder_id) {
+      return res.status(404).json({ error: 'Game sheets not available' });
+    }
+
+    // Mark sheets as downloaded
+    await supabase
+      .from('game_participants')
+      .update({ sheets_downloaded: true })
+      .eq('id', participation.id);
+
+    // Return sheet download information
+    // Note: In a real implementation, you would integrate with Google Drive API
+    // to generate temporary download links for the selected sheets
+    res.json({
+      message: 'Sheets ready for download',
+      sheetNumbers: participation.selected_sheet_numbers,
+      gameId: gameId,
+      gameName: game.name,
+      downloadUrl: `/api/games/${gameId}/sheets/${participation.id}` // This would be implemented with Google Drive integration
+    });
+  } catch (error) {
+    console.error('Error downloading sheets:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Proxy sheet download through Google Drive
+router.get('/:gameId/sheets/:participationId', authenticateToken, async (req, res) => {
+  try {
+    const { gameId, participationId } = req.params;
+    const userId = req.user.userId;
+
+    // Verify participation and approval
+    const { data: participation } = await supabase
+      .from('game_participants')
+      .select(`
+        *,
+        games (sheets_folder_id, name)
+      `)
+      .eq('id', participationId)
+      .eq('user_id', userId)
+      .eq('payment_status', 'approved')
+      .single();
+
+    if (!participation) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // For now, return a simple response
+    // In production, this would integrate with Google Drive API
+    res.json({
+      message: 'Sheet download links',
+      sheets: participation.selected_sheet_numbers.map(num => ({
+        sheetNumber: num,
+        downloadUrl: `https://drive.google.com/uc?id=SHEET_${num}_ID&export=download`,
+        fileName: `${participation.games.name}_Sheet_${num}.pdf`
+      }))
+    });
+
+  } catch (error) {
+    console.error('Error serving sheet download:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 module.exports = router;

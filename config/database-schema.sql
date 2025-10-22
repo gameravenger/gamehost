@@ -163,7 +163,7 @@ INSERT INTO admin_settings (setting_key, setting_value, description) VALUES
 ('platform_name', 'GameBlast Mobile', 'Platform name displayed across the site'),
 ('platform_tagline', 'Your Ultimate Mobile Gaming Experience', 'Platform tagline'),
 ('disclaimer_text', 'This platform is a SaaS service. We are not responsible for any monetary losses. Play responsibly.', 'Disclaimer text for banner'),
-('admin_email', 'admin@gameblast.com', 'Admin email for notifications'),
+('admin_email', 'managervcreation@gmail.com', 'Admin email for notifications'),
 ('organiser_monthly_fee', '2500', 'Monthly fee for organisers in INR'),
 ('max_featured_games', '15', 'Maximum number of featured games'),
 ('max_ads', '4', 'Maximum number of sponsored ads');

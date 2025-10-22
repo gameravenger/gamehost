@@ -155,7 +155,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.your-actual-servi
 JWT_SECRET=your-generated-32-character-secret-from-step-2
 
 # ===== ADMIN CONFIGURATION =====
-ADMIN_EMAIL=admin@gameblast.com
+ADMIN_EMAIL=managervcreation@gmail.com
 ADMIN_PHONE=+919876543210
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=AdminPass123!

@@ -165,9 +165,9 @@ BEGIN
             'game123',
             game_date,
             CASE i 
-                WHEN 1 THEN '19:00:00'
-                WHEN 2 THEN '20:00:00'
-                WHEN 3 THEN '21:00:00'
+                WHEN 1 THEN '19:00:00'::TIME
+                WHEN 2 THEN '20:00:00'::TIME
+                WHEN 3 THEN '21:00:00'::TIME
             END,
             'upcoming',
             'dummy_folder_id_' || org1_id || '_' || i,
@@ -222,9 +222,9 @@ BEGIN
             'number456',
             game_date,
             CASE i 
-                WHEN 1 THEN '18:00:00'
-                WHEN 2 THEN '19:30:00'
-                WHEN 3 THEN '21:30:00'
+                WHEN 1 THEN '18:00:00'::TIME
+                WHEN 2 THEN '19:30:00'::TIME
+                WHEN 3 THEN '21:30:00'::TIME
             END,
             'upcoming',
             'dummy_folder_id_' || org2_id || '_' || i,

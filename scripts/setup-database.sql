@@ -248,7 +248,7 @@ VALUES
     ('platform_name', 'GameBlast Mobile', 'Platform name displayed throughout the site'),
     ('platform_tagline', 'Ultimate Mobile Gaming Experience', 'Platform tagline'),
     ('organiser_monthly_fee', '2500', 'Monthly fee for organisers in INR'),
-    ('support_email', 'support@gameblast.com', 'Support email address'),
+    ('support_email', 'support@gameblast.in', 'Support email address'),
     ('support_whatsapp', '+919876543210', 'Support WhatsApp number'),
     ('support_phone', '+919876543210', 'Support phone number'),
     ('disclaimer_text', 'This platform is a SaaS service. We are not responsible for any monetary losses. Play responsibly.', 'Disclaimer banner text'),

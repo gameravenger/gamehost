@@ -305,7 +305,15 @@ SELECT setting_key, setting_value FROM admin_settings ORDER BY setting_key;
 SELECT 'News Items Created:' as info, count(*) as count FROM news_banner;
 SELECT text, is_active FROM news_banner ORDER BY display_order;
 
-RAISE NOTICE 'Database setup completed successfully!';
-RAISE NOTICE 'Admin Login: admin@gameblast.com / AdminPass123!';
-RAISE NOTICE 'User Login: player1@example.com / password123';
-RAISE NOTICE 'Organiser Login: organiser1@example.com / organiser123';
+-- Check ad scripts
+SELECT 'Ad Scripts Created:' as info, count(*) as count FROM ad_scripts;
+SELECT network_name, is_active FROM ad_scripts ORDER BY network_name;
+
+-- Final completion messages
+DO $$
+BEGIN
+    RAISE NOTICE 'Database setup completed successfully!';
+    RAISE NOTICE 'Admin Login: admin@gameblast.com / AdminPass123!';
+    RAISE NOTICE 'User Login: player1@example.com / password123';
+    RAISE NOTICE 'Organiser Login: organiser1@example.com / organiser123';
+END $$;

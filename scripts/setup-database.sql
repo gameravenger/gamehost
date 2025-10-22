@@ -267,7 +267,7 @@ VALUES
     ('📱 Download our PWA for the best mobile experience!', '/', true, 3),
     ('🎮 New games added daily - Never miss the action!', '/games', true, 4),
     ('💰 Organisers earn more with our platform - Join now!', '/organiser', true, 5)
-ON CONFLICT DO NOTHING;
+ON CONFLICT (display_order) DO NOTHING;
 
 -- ===== CREATE SAMPLE AD SCRIPTS =====
 INSERT INTO ad_scripts (network_name, script_content, is_active, placement_info)

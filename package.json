@@ -1,13 +1,12 @@
 {
-  "name": "mobile-gaming-platform",
+  "name": "gameblast-mobile",
   "version": "1.0.0",
-  "description": "Mobile-first online gaming platform with Tambola and number games",
+  "description": "GameBlast Mobile - Ultimate Mobile Gaming Platform",
   "main": "server.js",
   "scripts": {
     "dev": "node server.js",
-    "build": "echo 'Build complete - static files ready'",
     "start": "node server.js",
-    "vercel-build": "echo 'Vercel build complete'"
+    "build": "echo 'Static files ready for deployment'"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -23,6 +22,16 @@
     "nodemailer": "^6.9.7"
   },
   "engines": {
-    "node": "22.x"
-  }
+    "node": ">=18.0.0"
+  },
+  "keywords": [
+    "gaming",
+    "tambola",
+    "mobile",
+    "platform",
+    "nodejs",
+    "express"
+  ],
+  "author": "GameBlast Mobile",
+  "license": "MIT"
 }

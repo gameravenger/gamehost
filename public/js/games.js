@@ -124,7 +124,7 @@ class GamesManager {
       <div class="game-card-large ${game.has_glow_dot ? 'glow-dot' : ''} ${game.has_glow_shadow ? 'glow-shadow' : ''}" 
            data-game-id="${game.id}">
         <div class="game-banner">
-          <img src="${game.banner_image_url || '/images/default-game.jpg'}" 
+          <img src="${game.banner_image_url || '/images/default-game.svg'}" 
                alt="${game.name}" loading="lazy">
           <div class="game-status ${statusClass}">${statusText}</div>
         </div>

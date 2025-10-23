@@ -90,7 +90,7 @@ class GameDetailsManager {
     document.title = `${this.game.name} - GameBlast Mobile`;
 
     // Game banner and basic info
-    document.getElementById('gameBanner').src = this.game.banner_image_url || '/images/default-game.jpg';
+    document.getElementById('gameBanner').src = this.game.banner_image_url || '/images/default-game.svg';
     document.getElementById('gameTitle').textContent = this.game.name;
     
     // Status badge

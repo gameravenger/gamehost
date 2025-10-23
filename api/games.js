@@ -80,6 +80,35 @@ router.get('/today', async (req, res) => {
   }
 });
 
+// Get all public games (no auth required)
+router.get('/public', async (req, res) => {
+  try {
+    const { data: games, error } = await supabase
+      .from('games')
+      .select(`
+        *,
+        organisers (
+          organiser_name,
+          whatsapp_number,
+          real_name
+        )
+      `)
+      .in('status', ['upcoming', 'live'])
+      .order('game_date', { ascending: true })
+      .order('game_time', { ascending: true })
+      .limit(50);
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.json({ games: games || [] });
+  } catch (error) {
+    console.error('Error fetching public games:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get featured games
 router.get('/featured', async (req, res) => {
   try {

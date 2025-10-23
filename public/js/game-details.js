@@ -116,21 +116,28 @@ class GameDetailsManager {
     document.getElementById('gameTime').textContent = this.game.game_time ? app.formatTime(this.game.game_time) : 'TBA';
 
     // Organiser info
-    if (this.game.organisers) {
-      document.getElementById('organiserName').textContent = this.game.organisers.organiser_name;
+    console.log('Game organiser data:', this.game.organisers);
+    const organiserNameEl = document.getElementById('organiserName');
+    if (this.game.organisers && organiserNameEl) {
+      organiserNameEl.textContent = this.game.organisers.organiser_name || 'Unknown Organiser';
       
       // Contact organiser button
-      if (this.game.organisers.whatsapp_number) {
-        const contactBtn = document.getElementById('contactOrganiserBtn');
+      const contactBtn = document.getElementById('contactOrganiserBtn');
+      if (this.game.organisers.whatsapp_number && contactBtn) {
         contactBtn.style.display = 'inline-block';
         contactBtn.onclick = () => this.contactOrganiser();
       }
       
       // Meeting button (show only if game is live and user is registered)
-      if (this.game.status === 'live' && this.game.zoom_link) {
-        const meetingBtn = document.getElementById('joinMeetingBtn');
+      const meetingBtn = document.getElementById('joinMeetingBtn');
+      if (this.game.status === 'live' && this.game.zoom_link && meetingBtn) {
         meetingBtn.style.display = 'inline-block';
         meetingBtn.onclick = () => this.joinMeeting();
+      }
+    } else {
+      console.warn('No organiser data found for game:', this.game.id);
+      if (organiserNameEl) {
+        organiserNameEl.textContent = 'Organiser information not available';
       }
     }
 

@@ -49,8 +49,16 @@ class GamesManager {
       this.showLoading(true);
       
       console.log('Loading games for today...');
-      const response = await app.apiCall('/games/today');
-      console.log('Games API response:', response);
+      // Try to get today's games first, then fall back to public games
+      let response;
+      try {
+        response = await app.apiCall('/games/today');
+        console.log('Today games API response:', response);
+      } catch (error) {
+        console.log('Today games failed, falling back to public games');
+        response = await app.apiCall('/games/public');
+        console.log('Public games API response:', response);
+      }
       
       this.games = response.games || [];
       this.filteredGames = [...this.games];

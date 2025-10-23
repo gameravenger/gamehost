@@ -9,7 +9,7 @@
 DO $$
 DECLARE
     admin_user_id UUID;
-    hashed_password TEXT := '$2a$10$rQJ5qVJ5qVJ5qVJ5qVJ5qOJ5qVJ5qVJ5qVJ5qVJ5qVJ5qVJ5qVJ5q'; -- This is 'AdminPass123!' hashed
+    hashed_password TEXT := '$2a$10$UQZSkspzR8iGKtaE8EDNPeul7/EyZa7oWbqPFXPcQ2M8UD1EUVeRK'; -- This is 'AdminPass123!' hashed
 BEGIN
     -- Insert admin user
     INSERT INTO users (username, email, phone, password_hash, role, is_active)
@@ -30,7 +30,7 @@ DO $$
 DECLARE
     user1_id UUID;
     user2_id UUID;
-    hashed_password TEXT := '$2a$10$rQJ5qVJ5qVJ5qVJ5qVJ5qOJ5qVJ5qVJ5qVJ5qVJ5qVJ5qVJ5qVJ5q'; -- This is 'password123' hashed
+    hashed_password TEXT := '$2a$10$D0XvrqgsecbovCyCyPrpaujDbTBHwPqPcRhSYgWvve3xIkACDFLpq'; -- This is 'password123' hashed
 BEGIN
     -- Create dummy user 1
     INSERT INTO users (username, email, phone, password_hash, role, is_active)
@@ -54,7 +54,7 @@ DECLARE
     org2_user_id UUID;
     org1_id UUID;
     org2_id UUID;
-    hashed_password TEXT := '$2a$10$rQJ5qVJ5qVJ5qVJ5qVJ5qOJ5qVJ5qVJ5qVJ5qVJ5qVJ5qVJ5qVJ5q'; -- This is 'organiser123' hashed
+    hashed_password TEXT := '$2a$10$iFeW.qdkkGClRjxgFpWboO33P4tGXmapTKIyfQyg543yJ0izSboW.'; -- This is 'organiser123' hashed
 BEGIN
     -- Create organiser 1 user account
     INSERT INTO users (username, email, phone, password_hash, role, is_active)

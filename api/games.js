@@ -25,6 +25,7 @@ const authenticateToken = (req, res, next) => {
 router.get('/today', async (req, res) => {
   try {
     const today = new Date().toISOString().split('T')[0];
+    console.log('Fetching games for date:', today);
     
     const { data: games, error } = await supabase
       .from('games')
@@ -38,6 +39,8 @@ router.get('/today', async (req, res) => {
       .eq('game_date', today)
       .in('status', ['upcoming', 'live'])
       .order('game_time', { ascending: true });
+
+    console.log('Games query result:', { games: games?.length || 0, error });
 
     if (error) {
       return res.status(400).json({ error: error.message });

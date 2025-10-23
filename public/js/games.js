@@ -48,16 +48,21 @@ class GamesManager {
     try {
       this.showLoading(true);
       
+      console.log('Loading games for today...');
       const response = await app.apiCall('/games/today');
+      console.log('Games API response:', response);
+      
       this.games = response.games || [];
       this.filteredGames = [...this.games];
+      
+      console.log('Loaded games:', this.games.length);
       
       this.renderGames();
       this.showLoading(false);
       
     } catch (error) {
       console.error('Error loading games:', error);
-      app.showNotification('Failed to load games', 'error');
+      app.showNotification('Failed to load games. Please check if you have games for today.', 'error');
       this.showNoGames();
       this.showLoading(false);
     }
@@ -125,7 +130,8 @@ class GamesManager {
            data-game-id="${game.id}">
         <div class="game-banner">
           <img src="${game.banner_image_url || '/images/default-game.svg'}" 
-               alt="${game.name}" loading="lazy">
+               alt="${game.name}" loading="lazy" 
+               onerror="app.handleImageError(this)">
           <div class="game-status ${statusClass}">${statusText}</div>
         </div>
         
@@ -183,7 +189,7 @@ class GamesManager {
       
       const modalContent = document.getElementById('gameModalContent');
       modalContent.innerHTML = `
-        <img src="${game.banner_image_url || '/images/default-game.jpg'}" 
+          <img src="${game.banner_image_url || '/images/default-game.svg'}"
              alt="${game.name}" class="modal-game-banner">
         
         <h2 class="modal-game-title">${game.name}</h2>

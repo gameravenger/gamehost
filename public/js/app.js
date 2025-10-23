@@ -23,6 +23,12 @@ class GamePlatform {
     }
   }
 
+  // Image error handling
+  handleImageError(img) {
+    img.onerror = null; // Prevent infinite loop
+    img.src = '/images/default-game.svg';
+  }
+
   // Authentication Methods
   async checkAuthStatus() {
     if (this.token) {
@@ -276,7 +282,7 @@ class GamePlatform {
     const gameGrid = container.querySelector('.game-grid');
     gameGrid.innerHTML = games.map(game => `
       <div class="game-card ${game.has_glow_dot ? 'glow-dot' : ''} ${game.has_glow_shadow ? 'glow-shadow' : ''}">
-        <img src="${game.banner_image_url || '/images/default-game.jpg'}" alt="${game.name}" loading="lazy">
+        <img src="${game.banner_image_url || '/images/default-game.svg'}" alt="${game.name}" loading="lazy">
         <div class="game-info">
           <h3 class="game-title">${game.name}</h3>
           <div class="game-details">

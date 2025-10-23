@@ -70,8 +70,17 @@ class GameDetailsManager {
     try {
       this.showLoading(true);
       
+      console.log('Loading game details for ID:', this.gameId);
       const response = await app.apiCall(`/games/${this.gameId}`);
+      console.log('Game details response:', response);
+      
       this.game = response.game;
+      
+      if (this.game) {
+        console.log('Game data:', this.game);
+        console.log('Organiser data:', this.game.organisers);
+        console.log('Banner URL:', this.game.banner_image_url);
+      }
       
       this.renderGameDetails();
       this.generateSheetGrid();
@@ -90,7 +99,9 @@ class GameDetailsManager {
     document.title = `${this.game.name} - GameBlast Mobile`;
 
     // Game banner and basic info
-    document.getElementById('gameBanner').src = this.game.banner_image_url || '/images/default-game.svg';
+    const bannerImg = document.getElementById('gameBanner');
+    bannerImg.src = this.game.banner_image_url || '/images/default-game.svg';
+    bannerImg.onerror = () => app.handleImageError(bannerImg);
     document.getElementById('gameTitle').textContent = this.game.name;
     
     // Status badge

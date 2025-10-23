@@ -33,7 +33,8 @@ router.get('/today', async (req, res) => {
         *,
         organisers (
           organiser_name,
-          whatsapp_number
+          whatsapp_number,
+          real_name
         )
       `)
       .eq('game_date', today)
@@ -44,6 +45,32 @@ router.get('/today', async (req, res) => {
 
     if (error) {
       return res.status(400).json({ error: error.message });
+    }
+
+    // If no games for today, get upcoming games from future dates
+    if (!games || games.length === 0) {
+      console.log('No games for today, fetching upcoming games');
+      const { data: upcomingGames, error: upcomingError } = await supabase
+        .from('games')
+        .select(`
+          *,
+          organisers (
+            organiser_name,
+            whatsapp_number,
+            real_name
+          )
+        `)
+        .gte('game_date', today)
+        .eq('status', 'upcoming')
+        .order('game_date', { ascending: true })
+        .order('game_time', { ascending: true })
+        .limit(20);
+
+      if (upcomingError) {
+        return res.status(400).json({ error: upcomingError.message });
+      }
+
+      return res.json({ games: upcomingGames || [] });
     }
 
     res.json({ games });

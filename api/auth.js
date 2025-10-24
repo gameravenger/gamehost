@@ -198,7 +198,7 @@ router.post('/login', async (req, res) => {
     }
 
     // Find user by email or phone
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabaseAdmin
       .from('users')
       .select('*')
       .or(`email.eq.${identifier},phone.eq.${identifier}`)
@@ -229,7 +229,7 @@ router.post('/login', async (req, res) => {
     // For organisers, check if approved
     let organiserData = null;
     if (user.role === 'organiser') {
-      const { data: organiser } = await supabase
+      const { data: organiser } = await supabaseAdmin
         .from('organisers')
         .select('*')
         .eq('user_id', user.id)

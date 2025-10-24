@@ -4,6 +4,24 @@ const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY;
 
+// Validate required environment variables
+if (!supabaseUrl) {
+  console.error('❌ SUPABASE_URL is required in environment variables');
+  process.exit(1);
+}
+
+if (!supabaseServiceKey) {
+  console.error('❌ SUPABASE_SERVICE_ROLE_KEY is required in environment variables');
+  process.exit(1);
+}
+
+if (!supabaseAnonKey) {
+  console.error('❌ SUPABASE_ANON_KEY is required in environment variables');
+  process.exit(1);
+}
+
+console.log('✅ Supabase configuration loaded successfully');
+
 // Admin client with service role key
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 

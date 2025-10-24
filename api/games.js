@@ -1,5 +1,5 @@
 const express = require('express');
-const { supabase } = require('../config/database');
+const { supabase, supabaseAdmin } = require('../config/database');
 const router = express.Router();
 
 // Middleware to verify JWT token
@@ -27,7 +27,7 @@ router.get('/today', async (req, res) => {
     const today = new Date().toISOString().split('T')[0];
     console.log('Fetching games for date:', today);
     
-    const { data: games, error } = await supabase
+    const { data: games, error } = await supabaseAdmin
       .from('games')
       .select(`
         *,
@@ -50,21 +50,21 @@ router.get('/today', async (req, res) => {
     // If no games for today, get upcoming games from future dates
     if (!games || games.length === 0) {
       console.log('No games for today, fetching upcoming games');
-      const { data: upcomingGames, error: upcomingError } = await supabase
-        .from('games')
-        .select(`
-          *,
-          organisers (
-            organiser_name,
-            whatsapp_number,
-            real_name
-          )
-        `)
-        .gte('game_date', today)
-        .eq('status', 'upcoming')
-        .order('game_date', { ascending: true })
-        .order('game_time', { ascending: true })
-        .limit(20);
+        const { data: upcomingGames, error: upcomingError } = await supabaseAdmin
+          .from('games')
+          .select(`
+            *,
+            organisers (
+              organiser_name,
+              whatsapp_number,
+              real_name
+            )
+          `)
+          .gte('game_date', today)
+          .eq('status', 'upcoming')
+          .order('game_date', { ascending: true })
+          .order('game_time', { ascending: true })
+          .limit(20);
 
       if (upcomingError) {
         return res.status(400).json({ error: upcomingError.message });
@@ -85,7 +85,7 @@ router.get('/public', async (req, res) => {
   try {
     console.log('🌍 Fetching public games...');
     
-    const { data: games, error } = await supabase
+    const { data: games, error } = await supabaseAdmin
       .from('games')
       .select(`
         *,
@@ -117,7 +117,7 @@ router.get('/public', async (req, res) => {
 // Get featured games
 router.get('/featured', async (req, res) => {
   try {
-    const { data: games, error } = await supabase
+    const { data: games, error } = await supabaseAdmin
       .from('games')
       .select(`
         *,
@@ -145,7 +145,7 @@ router.get('/featured', async (req, res) => {
 // Get top games
 router.get('/top', async (req, res) => {
   try {
-    const { data: games, error } = await supabase
+    const { data: games, error } = await supabaseAdmin
       .from('games')
       .select(`
         *,
@@ -175,7 +175,7 @@ router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
-    const { data: game, error } = await supabase
+    const { data: game, error } = await supabaseAdmin
       .from('games')
       .select(`
         *,

@@ -1,6 +1,6 @@
+require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { supabaseAdmin } = require('../config/database');
-require('dotenv').config();
 
 async function createAdminUser() {
   try {

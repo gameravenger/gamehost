@@ -24,6 +24,36 @@ const authenticateAdmin = (req, res, next) => {
   });
 };
 
+// Get all organisers
+router.get('/organisers', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🏢 Fetching all organisers...');
+    const { data: organisers, error } = await supabaseAdmin
+      .from('organisers')
+      .select(`
+        *,
+        users (
+          username,
+          email,
+          phone,
+          created_at
+        )
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.log('❌ Organisers query error:', error.message);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log('✅ Organisers loaded:', organisers?.length || 0);
+    res.json({ organisers });
+  } catch (error) {
+    console.error('💥 Error fetching organisers:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get all pending organiser applications
 router.get('/organisers/pending', authenticateAdmin, async (req, res) => {
   try {
@@ -144,6 +174,66 @@ router.get('/games', authenticateAdmin, async (req, res) => {
   }
 });
 
+// Get featured games for management
+router.get('/games/featured', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('⭐ Fetching featured games for admin...');
+    const { data: games, error } = await supabaseAdmin
+      .from('games')
+      .select(`
+        *,
+        organisers (
+          organiser_name,
+          whatsapp_number,
+          real_name
+        )
+      `)
+      .eq('is_featured', true)
+      .order('featured_order', { ascending: true });
+
+    if (error) {
+      console.log('❌ Featured games query error:', error.message);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log('✅ Featured games loaded:', games?.length || 0);
+    res.json({ games });
+  } catch (error) {
+    console.error('💥 Error fetching featured games:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get top games for management
+router.get('/games/top', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('🔥 Fetching top games for admin...');
+    const { data: games, error } = await supabaseAdmin
+      .from('games')
+      .select(`
+        *,
+        organisers (
+          organiser_name,
+          whatsapp_number,
+          real_name
+        )
+      `)
+      .eq('is_top_game', true)
+      .order('top_game_order', { ascending: true });
+
+    if (error) {
+      console.log('❌ Top games query error:', error.message);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log('✅ Top games loaded:', games?.length || 0);
+    res.json({ games });
+  } catch (error) {
+    console.error('💥 Error fetching top games:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Update game featured/top status
 router.put('/games/:id/promotion', authenticateAdmin, async (req, res) => {
   try {
@@ -253,6 +343,115 @@ router.put('/ads/:id', authenticateAdmin, async (req, res) => {
     res.json({ message: 'Ad updated successfully', ad });
   } catch (error) {
     console.error('Error updating ad:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get news banners
+router.get('/news-banners', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('📰 Fetching news banners...');
+    const { data: banners, error } = await supabaseAdmin
+      .from('news_banner')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    if (error) {
+      console.log('❌ News banners query error:', error.message);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log('✅ News banners loaded:', banners?.length || 0);
+    res.json({ banners });
+  } catch (error) {
+    console.error('💥 Error fetching news banners:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Create/Update news banner
+router.post('/news-banners', authenticateAdmin, async (req, res) => {
+  try {
+    const { text, linkUrl, displayOrder, isActive } = req.body;
+    console.log('📰 Creating news banner:', text);
+
+    const { data: banner, error } = await supabaseAdmin
+      .from('news_banner')
+      .insert([{
+        text,
+        link_url: linkUrl,
+        display_order: displayOrder || 0,
+        is_active: isActive !== undefined ? isActive : true
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      console.log('❌ News banner creation error:', error.message);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log('✅ News banner created:', banner.id);
+    res.json({ message: 'News banner created successfully', banner });
+  } catch (error) {
+    console.error('💥 Error creating news banner:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Update news banner
+router.put('/news-banners/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { text, linkUrl, displayOrder, isActive } = req.body;
+    console.log('📰 Updating news banner:', id);
+
+    const { data: banner, error } = await supabaseAdmin
+      .from('news_banner')
+      .update({
+        text,
+        link_url: linkUrl,
+        display_order: displayOrder,
+        is_active: isActive,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.log('❌ News banner update error:', error.message);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log('✅ News banner updated:', banner.id);
+    res.json({ message: 'News banner updated successfully', banner });
+  } catch (error) {
+    console.error('💥 Error updating news banner:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Delete news banner
+router.delete('/news-banners/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log('📰 Deleting news banner:', id);
+
+    const { error } = await supabaseAdmin
+      .from('news_banner')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.log('❌ News banner deletion error:', error.message);
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log('✅ News banner deleted:', id);
+    res.json({ message: 'News banner deleted successfully' });
+  } catch (error) {
+    console.error('💥 Error deleting news banner:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -393,6 +592,89 @@ router.put('/settings/:key', authenticateAdmin, async (req, res) => {
     res.json({ message: 'Setting updated successfully', setting });
   } catch (error) {
     console.error('Error updating setting:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Get analytics data
+router.get('/analytics', authenticateAdmin, async (req, res) => {
+  try {
+    console.log('📊 Fetching analytics data...');
+    
+    // Get user counts
+    const { count: totalUsers } = await supabaseAdmin
+      .from('users')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: activeUsers } = await supabaseAdmin
+      .from('users')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_active', true);
+
+    // Get organiser counts
+    const { count: totalOrganisers } = await supabaseAdmin
+      .from('organisers')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: approvedOrganisers } = await supabaseAdmin
+      .from('organisers')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_approved', true);
+
+    // Get game counts
+    const { count: totalGames } = await supabaseAdmin
+      .from('games')
+      .select('*', { count: 'exact', head: true });
+
+    const { count: upcomingGames } = await supabaseAdmin
+      .from('games')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'upcoming');
+
+    const { count: liveGames } = await supabaseAdmin
+      .from('games')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'live');
+
+    const { count: featuredGames } = await supabaseAdmin
+      .from('games')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_featured', true);
+
+    const { count: topGames } = await supabaseAdmin
+      .from('games')
+      .select('*', { count: 'exact', head: true })
+      .eq('is_top_game', true);
+
+    // Get participation counts
+    const { count: totalParticipations } = await supabaseAdmin
+      .from('game_participants')
+      .select('*', { count: 'exact', head: true });
+
+    console.log('✅ Analytics data compiled');
+    
+    res.json({
+      users: {
+        total: totalUsers || 0,
+        active: activeUsers || 0
+      },
+      organisers: {
+        total: totalOrganisers || 0,
+        approved: approvedOrganisers || 0
+      },
+      games: {
+        total: totalGames || 0,
+        upcoming: upcomingGames || 0,
+        live: liveGames || 0,
+        featured: featuredGames || 0,
+        top: topGames || 0
+      },
+      participations: {
+        total: totalParticipations || 0
+      }
+    });
+  } catch (error) {
+    console.error('💥 Error fetching analytics:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

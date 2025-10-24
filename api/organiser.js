@@ -1,5 +1,5 @@
 const express = require('express');
-const { supabase } = require('../config/database');
+const { supabase, supabaseAdmin } = require('../config/database');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 
@@ -27,7 +27,8 @@ const authenticateOrganiser = (req, res, next) => {
 // Get organiser profile
 router.get('/profile', authenticateOrganiser, async (req, res) => {
   try {
-    const { data: organiser, error } = await supabase
+    console.log('🏢 Fetching organiser profile for user:', req.user.userId);
+    const { data: organiser, error } = await supabaseAdminAdmin
       .from('organisers')
       .select(`
         *,
@@ -41,9 +42,11 @@ router.get('/profile', authenticateOrganiser, async (req, res) => {
       .single();
 
     if (error || !organiser) {
+      console.log('❌ Organiser profile not found:', error?.message);
       return res.status(404).json({ error: 'Organiser profile not found' });
     }
 
+    console.log('✅ Organiser profile loaded:', organiser.organiser_name);
     res.json({ organiser });
   } catch (error) {
     console.error('Error fetching organiser profile:', error);
@@ -56,7 +59,7 @@ router.put('/profile', authenticateOrganiser, async (req, res) => {
   try {
     const { organiserName, whatsappNumber } = req.body;
 
-    const { data: organiser, error } = await supabase
+    const { data: organiser, error } = await supabaseAdminAdmin
       .from('organisers')
       .update({
         organiser_name: organiserName,
@@ -112,7 +115,7 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
     }
 
     // Get organiser ID
-    const { data: organiser } = await supabase
+    const { data: organiser } = await supabaseAdminAdmin
       .from('organisers')
       .select('id')
       .eq('user_id', req.user.userId)
@@ -129,7 +132,7 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
     }
 
     // Create game
-    const { data: game, error } = await supabase
+    const { data: game, error } = await supabaseAdminAdmin
       .from('games')
       .insert([{
         organiser_id: organiser.id,
@@ -168,19 +171,21 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
 router.get('/games', authenticateOrganiser, async (req, res) => {
   try {
     const { status } = req.query;
+    console.log('🎮 Fetching games for organiser user:', req.user.userId);
 
     // Get organiser ID
-    const { data: organiser } = await supabase
+    const { data: organiser } = await supabaseAdminAdmin
       .from('organisers')
       .select('id')
       .eq('user_id', req.user.userId)
       .single();
 
     if (!organiser) {
+      console.log('❌ Organiser profile not found for user:', req.user.userId);
       return res.status(404).json({ error: 'Organiser profile not found' });
     }
 
-    let query = supabase
+    let query = supabaseAdmin
       .from('games')
       .select('*')
       .eq('organiser_id', organiser.id);
@@ -192,12 +197,14 @@ router.get('/games', authenticateOrganiser, async (req, res) => {
     const { data: games, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
+      console.log('❌ Games query error:', error.message);
       return res.status(400).json({ error: error.message });
     }
 
+    console.log('✅ Games loaded:', games?.length || 0);
     res.json({ games });
   } catch (error) {
-    console.error('Error fetching organiser games:', error);
+    console.error('💥 Error fetching organiser games:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -209,14 +216,14 @@ router.put('/games/:id', authenticateOrganiser, async (req, res) => {
     const updateData = req.body;
 
     // Get organiser ID
-    const { data: organiser } = await supabase
+    const { data: organiser } = await supabaseAdminAdmin
       .from('organisers')
       .select('id')
       .eq('user_id', req.user.userId)
       .single();
 
     // Verify game belongs to organiser
-    const { data: existingGame } = await supabase
+    const { data: existingGame } = await supabaseAdminAdmin
       .from('games')
       .select('*')
       .eq('id', id)
@@ -227,7 +234,7 @@ router.put('/games/:id', authenticateOrganiser, async (req, res) => {
       return res.status(404).json({ error: 'Game not found or access denied' });
     }
 
-    const { data: game, error } = await supabase
+    const { data: game, error } = await supabaseAdminAdmin
       .from('games')
       .update({
         ...updateData,
@@ -255,14 +262,14 @@ router.get('/games/:id/participants', authenticateOrganiser, async (req, res) =>
     const { id } = req.params;
 
     // Get organiser ID
-    const { data: organiser } = await supabase
+    const { data: organiser } = await supabaseAdmin
       .from('organisers')
       .select('id')
       .eq('user_id', req.user.userId)
       .single();
 
     // Verify game belongs to organiser
-    const { data: game } = await supabase
+    const { data: game } = await supabaseAdmin
       .from('games')
       .select('*')
       .eq('id', id)
@@ -273,7 +280,7 @@ router.get('/games/:id/participants', authenticateOrganiser, async (req, res) =>
       return res.status(404).json({ error: 'Game not found or access denied' });
     }
 
-    const { data: participants, error } = await supabase
+    const { data: participants, error } = await supabaseAdmin
       .from('game_participants')
       .select(`
         *,
@@ -307,7 +314,7 @@ router.put('/participants/:id/status', authenticateOrganiser, async (req, res) =
     }
 
     // Get participant details
-    const { data: participant } = await supabase
+    const { data: participant } = await supabaseAdmin
       .from('game_participants')
       .select(`
         *,
@@ -331,7 +338,7 @@ router.put('/participants/:id/status', authenticateOrganiser, async (req, res) =
     }
 
     // Update participant status
-    const { data: updatedParticipant, error } = await supabase
+    const { data: updatedParticipant, error } = await supabaseAdmin
       .from('game_participants')
       .update({
         payment_status: status,
@@ -347,7 +354,7 @@ router.put('/participants/:id/status', authenticateOrganiser, async (req, res) =
 
     // Send notification to user
     if (status === 'approved') {
-      await supabase
+      await supabaseAdmin
         .from('notifications')
         .insert([{
           user_id: participant.user_id,
@@ -371,14 +378,14 @@ router.post('/games/:id/end', authenticateOrganiser, async (req, res) => {
     const { winners } = req.body; // Array of {userId, position, prizeAmount}
 
     // Get organiser ID
-    const { data: organiser } = await supabase
+    const { data: organiser } = await supabaseAdmin
       .from('organisers')
       .select('id')
       .eq('user_id', req.user.userId)
       .single();
 
     // Verify game belongs to organiser
-    const { data: game } = await supabase
+    const { data: game } = await supabaseAdmin
       .from('games')
       .select('*')
       .eq('id', id)
@@ -390,7 +397,7 @@ router.post('/games/:id/end', authenticateOrganiser, async (req, res) => {
     }
 
     // Update game status to ended
-    await supabase
+    await supabaseAdmin
       .from('games')
       .update({
         status: 'ended',
@@ -417,7 +424,7 @@ router.post('/games/:id/end', authenticateOrganiser, async (req, res) => {
       }
 
       if (winnerRecords.length > 0) {
-        await supabase
+        await supabaseAdmin
           .from('game_winners')
           .insert(winnerRecords);
       }
@@ -434,20 +441,20 @@ router.post('/games/:id/end', authenticateOrganiser, async (req, res) => {
 router.get('/stats', authenticateOrganiser, async (req, res) => {
   try {
     // Get organiser ID
-    const { data: organiser } = await supabase
+    const { data: organiser } = await supabaseAdmin
       .from('organisers')
       .select('id')
       .eq('user_id', req.user.userId)
       .single();
 
     // Get total games
-    const { count: totalGames } = await supabase
+    const { count: totalGames } = await supabaseAdmin
       .from('games')
       .select('*', { count: 'exact' })
       .eq('organiser_id', organiser.id);
 
     // Get ended games with financial data
-    const { data: endedGames } = await supabase
+    const { data: endedGames } = await supabaseAdmin
       .from('games')
       .select(`
         id,
@@ -580,14 +587,14 @@ router.post('/games/:id/start', authenticateOrganiser, async (req, res) => {
     const { id } = req.params;
 
     // Get organiser ID
-    const { data: organiser } = await supabase
+    const { data: organiser } = await supabaseAdmin
       .from('organisers')
       .select('id')
       .eq('user_id', req.user.userId)
       .single();
 
     // Verify game belongs to organiser
-    const { data: game } = await supabase
+    const { data: game } = await supabaseAdmin
       .from('games')
       .select('*')
       .eq('id', id)
@@ -599,7 +606,7 @@ router.post('/games/:id/start', authenticateOrganiser, async (req, res) => {
     }
 
     // Update game status to live
-    await supabase
+    await supabaseAdmin
       .from('games')
       .update({
         status: 'live',
@@ -608,7 +615,7 @@ router.post('/games/:id/start', authenticateOrganiser, async (req, res) => {
       .eq('id', id);
 
     // Get all approved participants for this game
-    const { data: participants } = await supabase
+    const { data: participants } = await supabaseAdmin
       .from('game_participants')
       .select('user_id')
       .eq('game_id', id)
@@ -623,7 +630,7 @@ router.post('/games/:id/start', authenticateOrganiser, async (req, res) => {
         type: 'game_live'
       }));
 
-      await supabase
+      await supabaseAdmin
         .from('notifications')
         .insert(notifications);
     }

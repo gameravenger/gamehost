@@ -28,7 +28,9 @@ const authenticateOrganiser = (req, res, next) => {
 router.get('/profile', authenticateOrganiser, async (req, res) => {
   try {
     console.log('🏢 Fetching organiser profile for user:', req.user.userId);
-    const { data: organiser, error } = await supabaseAdminAdmin
+    console.log('🔍 User object from token:', req.user);
+    
+    const { data: organiser, error } = await supabaseAdmin
       .from('organisers')
       .select(`
         *,
@@ -41,16 +43,23 @@ router.get('/profile', authenticateOrganiser, async (req, res) => {
       .eq('user_id', req.user.userId)
       .single();
 
-    if (error || !organiser) {
-      console.log('❌ Organiser profile not found:', error?.message);
+    if (error) {
+      console.log('❌ Organiser profile query error:', error);
+      return res.status(400).json({ error: 'Database error: ' + error.message });
+    }
+
+    if (!organiser) {
+      console.log('❌ Organiser profile not found for user_id:', req.user.userId);
       return res.status(404).json({ error: 'Organiser profile not found' });
     }
 
     console.log('✅ Organiser profile loaded:', organiser.organiser_name);
+    console.log('📊 Profile data:', { id: organiser.id, name: organiser.organiser_name, approved: organiser.is_approved });
     res.json({ organiser });
   } catch (error) {
-    console.error('Error fetching organiser profile:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('💥 Error fetching organiser profile:', error);
+    console.error('💥 Error stack:', error.stack);
+    res.status(500).json({ error: 'Internal server error: ' + error.message });
   }
 });
 
@@ -59,7 +68,7 @@ router.put('/profile', authenticateOrganiser, async (req, res) => {
   try {
     const { organiserName, whatsappNumber } = req.body;
 
-    const { data: organiser, error } = await supabaseAdminAdmin
+    const { data: organiser, error } = await supabaseAdmin
       .from('organisers')
       .update({
         organiser_name: organiserName,
@@ -115,7 +124,7 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
     }
 
     // Get organiser ID
-    const { data: organiser } = await supabaseAdminAdmin
+    const { data: organiser } = await supabaseAdmin
       .from('organisers')
       .select('id')
       .eq('user_id', req.user.userId)
@@ -132,7 +141,7 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
     }
 
     // Create game
-    const { data: game, error } = await supabaseAdminAdmin
+    const { data: game, error } = await supabaseAdmin
       .from('games')
       .insert([{
         organiser_id: organiser.id,
@@ -172,18 +181,27 @@ router.get('/games', authenticateOrganiser, async (req, res) => {
   try {
     const { status } = req.query;
     console.log('🎮 Fetching games for organiser user:', req.user.userId);
+    console.log('🔍 Query status filter:', status);
 
     // Get organiser ID
-    const { data: organiser } = await supabaseAdminAdmin
+    console.log('🔍 Looking up organiser for user_id:', req.user.userId);
+    const { data: organiser, error: organiserError } = await supabaseAdmin
       .from('organisers')
       .select('id')
       .eq('user_id', req.user.userId)
       .single();
 
+    if (organiserError) {
+      console.log('❌ Organiser lookup error:', organiserError);
+      return res.status(400).json({ error: 'Error finding organiser: ' + organiserError.message });
+    }
+
     if (!organiser) {
       console.log('❌ Organiser profile not found for user:', req.user.userId);
       return res.status(404).json({ error: 'Organiser profile not found' });
     }
+
+    console.log('✅ Found organiser ID:', organiser.id);
 
     let query = supabaseAdmin
       .from('games')
@@ -191,21 +209,25 @@ router.get('/games', authenticateOrganiser, async (req, res) => {
       .eq('organiser_id', organiser.id);
 
     if (status) {
+      console.log('🔍 Adding status filter:', status);
       query = query.eq('status', status);
     }
 
+    console.log('🔍 Executing games query...');
     const { data: games, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
-      console.log('❌ Games query error:', error.message);
+      console.log('❌ Games query error:', error);
       return res.status(400).json({ error: error.message });
     }
 
     console.log('✅ Games loaded:', games?.length || 0);
+    console.log('📊 Games data sample:', games?.slice(0, 2));
     res.json({ games });
   } catch (error) {
     console.error('💥 Error fetching organiser games:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('💥 Error stack:', error.stack);
+    res.status(500).json({ error: 'Internal server error: ' + error.message });
   }
 });
 
@@ -216,14 +238,14 @@ router.put('/games/:id', authenticateOrganiser, async (req, res) => {
     const updateData = req.body;
 
     // Get organiser ID
-    const { data: organiser } = await supabaseAdminAdmin
+    const { data: organiser } = await supabaseAdmin
       .from('organisers')
       .select('id')
       .eq('user_id', req.user.userId)
       .single();
 
     // Verify game belongs to organiser
-    const { data: existingGame } = await supabaseAdminAdmin
+    const { data: existingGame } = await supabaseAdmin
       .from('games')
       .select('*')
       .eq('id', id)
@@ -234,7 +256,7 @@ router.put('/games/:id', authenticateOrganiser, async (req, res) => {
       return res.status(404).json({ error: 'Game not found or access denied' });
     }
 
-    const { data: game, error } = await supabaseAdminAdmin
+    const { data: game, error } = await supabaseAdmin
       .from('games')
       .update({
         ...updateData,
@@ -440,12 +462,26 @@ router.post('/games/:id/end', authenticateOrganiser, async (req, res) => {
 // Get organiser statistics
 router.get('/stats', authenticateOrganiser, async (req, res) => {
   try {
+    console.log('📊 Fetching stats for organiser user:', req.user.userId);
+    
     // Get organiser ID
-    const { data: organiser } = await supabaseAdmin
+    const { data: organiser, error: organiserError } = await supabaseAdmin
       .from('organisers')
       .select('id')
       .eq('user_id', req.user.userId)
       .single();
+
+    if (organiserError) {
+      console.log('❌ Organiser lookup error for stats:', organiserError);
+      return res.status(400).json({ error: 'Error finding organiser: ' + organiserError.message });
+    }
+
+    if (!organiser) {
+      console.log('❌ Organiser not found for stats, user_id:', req.user.userId);
+      return res.status(404).json({ error: 'Organiser profile not found' });
+    }
+
+    console.log('✅ Found organiser for stats, ID:', organiser.id);
 
     // Get total games
     const { count: totalGames } = await supabaseAdmin

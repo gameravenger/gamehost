@@ -10,24 +10,51 @@ class OrganiserManager {
   }
 
   async init() {
+    // Wait for app authentication to complete
+    if (!app.authReady) {
+      window.addEventListener('authReady', () => this.checkAuthAndInit());
+      
+      // Fallback timeout in case event doesn't fire
+      setTimeout(() => {
+        if (!app.authReady) {
+          console.log('⏰ Auth timeout, checking anyway...');
+          this.checkAuthAndInit();
+        }
+      }, 3000);
+      return;
+    }
+    
+    this.checkAuthAndInit();
+  }
+  
+  checkAuthAndInit() {
+    // Hide loading screen
+    document.getElementById('authLoadingScreen').style.display = 'none';
+    
     // Check if user is logged in and is an organiser
+    console.log('🔍 Checking organiser auth. User:', app.user);
+    
     if (!app.user || (app.user.role !== 'organiser' && app.user.role !== 'admin')) {
+      console.log('❌ Access denied. User role:', app.user?.role || 'No user');
       this.showLoginRequired();
       return;
     }
 
+    console.log('✅ Organiser access granted for:', app.user.username);
     this.showDashboard();
     this.setupEventListeners();
-    await this.loadOrganiserData();
-    await this.loadDashboardData();
+    this.loadOrganiserData();
+    this.loadDashboardData();
   }
 
   showLoginRequired() {
+    document.getElementById('authLoadingScreen').style.display = 'none';
     document.getElementById('loginRequiredScreen').style.display = 'block';
     document.getElementById('organiserDashboard').style.display = 'none';
   }
 
   showDashboard() {
+    document.getElementById('authLoadingScreen').style.display = 'none';
     document.getElementById('loginRequiredScreen').style.display = 'none';
     document.getElementById('organiserDashboard').style.display = 'flex';
   }

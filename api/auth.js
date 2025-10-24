@@ -33,7 +33,7 @@ router.post('/register', async (req, res) => {
     }
 
     // Check if user already exists
-    const { data: existingUser } = await supabase
+    const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('*')
       .or(`email.eq.${email},phone.eq.${phone},username.eq.${username}`)
@@ -47,7 +47,7 @@ router.post('/register', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Create user
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabaseAdmin
       .from('users')
       .insert([{
         username,
@@ -107,7 +107,7 @@ router.post('/register-organiser', async (req, res) => {
     }
 
     // Check if user already exists
-    const { data: existingUser } = await supabase
+    const { data: existingUser } = await supabaseAdmin
       .from('users')
       .select('*')
       .or(`email.eq.${email},phone.eq.${phone},username.eq.${username}`)
@@ -121,7 +121,7 @@ router.post('/register-organiser', async (req, res) => {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Create user
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await supabaseAdmin
       .from('users')
       .insert([{
         username,
@@ -138,7 +138,7 @@ router.post('/register-organiser', async (req, res) => {
     }
 
     // Create organiser profile
-    const { data: organiser, error: organiserError } = await supabase
+    const { data: organiser, error: organiserError } = await supabaseAdmin
       .from('organisers')
       .insert([{
         user_id: user.id,
@@ -155,7 +155,7 @@ router.post('/register-organiser', async (req, res) => {
 
     if (organiserError) {
       // Rollback user creation if organiser creation fails
-      await supabase.from('users').delete().eq('id', user.id);
+      await supabaseAdmin.from('users').delete().eq('id', user.id);
       return res.status(400).json({ error: organiserError.message });
     }
 
@@ -275,7 +275,7 @@ router.post('/login', async (req, res) => {
 // Get current user profile
 router.get('/profile', authenticateToken, async (req, res) => {
   try {
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabaseAdmin
       .from('users')
       .select('id, username, email, phone, role, created_at')
       .eq('id', req.user.userId)
@@ -288,7 +288,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
     // If organiser, get organiser data
     let organiserData = null;
     if (user.role === 'organiser') {
-      const { data: organiser } = await supabase
+      const { data: organiser } = await supabaseAdmin
         .from('organisers')
         .select('*')
         .eq('user_id', user.id)

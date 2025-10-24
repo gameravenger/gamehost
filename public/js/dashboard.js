@@ -9,15 +9,37 @@ class DashboardManager {
   }
 
   async init() {
+    // Wait for app authentication to complete
+    if (!app.authReady) {
+      window.addEventListener('authReady', () => this.checkAuthAndInit());
+      
+      // Fallback timeout in case event doesn't fire
+      setTimeout(() => {
+        if (!app.authReady) {
+          console.log('⏰ Auth timeout, checking anyway...');
+          this.checkAuthAndInit();
+        }
+      }, 3000);
+      return;
+    }
+    
+    this.checkAuthAndInit();
+  }
+  
+  checkAuthAndInit() {
     // Check if user is logged in
+    console.log('🔍 Checking user auth. User:', app.user);
+    
     if (!app.user || app.user.role !== 'user') {
+      console.log('❌ User access denied. User role:', app.user?.role || 'No user');
       this.showLoginRequired();
       return;
     }
 
+    console.log('✅ User dashboard access granted for:', app.user.username);
     this.showDashboard();
     this.setupEventListeners();
-    await this.loadDashboardData();
+    this.loadDashboardData();
   }
 
   showLoginRequired() {

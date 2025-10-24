@@ -12,7 +12,7 @@ class GamePlatform {
     await this.loadAdScripts();
     await this.loadPublicSettings();
     this.setupEventListeners();
-    this.checkAuthStatus();
+    await this.checkAuthStatus(); // Wait for auth check to complete
     this.loadPublicData();
     
     // Load notifications for logged-in users
@@ -21,6 +21,10 @@ class GamePlatform {
       // Check for new notifications every 30 seconds
       setInterval(() => this.loadNotifications(), 30000);
     }
+    
+    // Notify other scripts that auth is ready
+    this.authReady = true;
+    window.dispatchEvent(new CustomEvent('authReady'));
   }
 
   // FIXED: Enhanced image error handling

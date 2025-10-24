@@ -23,10 +23,12 @@ class GamePlatform {
     }
   }
 
-  // Image error handling
+  // FIXED: Enhanced image error handling
   handleImageError(img) {
+    console.log('🖼️ Image error for:', img.src);
     img.onerror = null; // Prevent infinite loop
     img.src = '/images/default-game.svg';
+    img.alt = 'Game Image';
   }
 
   // Authentication Methods
@@ -282,7 +284,9 @@ class GamePlatform {
     const gameGrid = container.querySelector('.game-grid');
     gameGrid.innerHTML = games.map(game => `
       <div class="game-card ${game.has_glow_dot ? 'glow-dot' : ''} ${game.has_glow_shadow ? 'glow-shadow' : ''}">
-        <img src="${game.banner_image_url || '/images/default-game.svg'}" alt="${game.name}" loading="lazy">
+        <img src="${game.banner_image_url || '/images/default-game.svg'}" 
+             alt="${game.name}" loading="lazy"
+             onerror="this.onerror=null; this.src='/images/default-game.svg'; console.log('🖼️ Image fallback for: ${game.name}');">
         <div class="game-info">
           <h3 class="game-title">${game.name}</h3>
           <div class="game-details">

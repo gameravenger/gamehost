@@ -70,16 +70,16 @@ class GameDetailsManager {
     try {
       this.showLoading(true);
       
-      console.log('Loading game details for ID:', this.gameId);
+      console.log('🎮 Loading game details for ID:', this.gameId);
       const response = await app.apiCall(`/games/${this.gameId}`);
-      console.log('Game details response:', response);
+      console.log('📊 Game details response:', response);
       
       this.game = response.game;
       
       if (this.game) {
-        console.log('Game data:', this.game);
-        console.log('Organiser data:', this.game.organisers);
-        console.log('Banner URL:', this.game.banner_image_url);
+        console.log('🎯 Game data:', this.game);
+        console.log('🏢 Organiser data:', this.game.organisers);
+        console.log('🖼️ Banner URL:', this.game.banner_image_url);
       }
       
       this.renderGameDetails();
@@ -98,10 +98,14 @@ class GameDetailsManager {
     // Update page title
     document.title = `${this.game.name} - GameBlast Mobile`;
 
-    // Game banner and basic info
+    // Game banner and basic info - FIXED: Better image handling
     const bannerImg = document.getElementById('gameBanner');
     bannerImg.src = this.game.banner_image_url || '/images/default-game.svg';
-    bannerImg.onerror = () => app.handleImageError(bannerImg);
+    bannerImg.onerror = () => {
+      bannerImg.onerror = null;
+      bannerImg.src = '/images/default-game.svg';
+      console.log('🖼️ Banner image fallback for:', this.game.name);
+    };
     document.getElementById('gameTitle').textContent = this.game.name;
     
     // Status badge
@@ -115,8 +119,8 @@ class GameDetailsManager {
     document.getElementById('gameDate').textContent = app.formatDate(this.game.game_date);
     document.getElementById('gameTime').textContent = this.game.game_time ? app.formatTime(this.game.game_time) : 'TBA';
 
-    // Organiser info
-    console.log('Game organiser data:', this.game.organisers);
+    // FIXED: Enhanced organiser info display
+    console.log('🏢 Game organiser data:', this.game.organisers);
     const organiserNameEl = document.getElementById('organiserName');
     if (this.game.organisers && organiserNameEl) {
       organiserNameEl.textContent = this.game.organisers.organiser_name || 'Unknown Organiser';
@@ -135,7 +139,7 @@ class GameDetailsManager {
         meetingBtn.onclick = () => this.joinMeeting();
       }
     } else {
-      console.warn('No organiser data found for game:', this.game.id);
+      console.warn('⚠️ No organiser data found for game:', this.game.id);
       if (organiserNameEl) {
         organiserNameEl.textContent = 'Organiser information not available';
       }

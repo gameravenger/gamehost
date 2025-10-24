@@ -186,16 +186,25 @@ class OrganiserManager {
 
   async loadOrganiserData() {
     try {
+      console.log('🏢 Loading organiser data...');
+      console.log('🔑 Current user:', app.user);
+      console.log('🎫 Current token:', app.token ? 'Present' : 'Missing');
+      
       const response = await app.apiCall('/organiser/profile');
+      console.log('📊 Organiser data response:', response);
+      
       this.organiserData = response.organiser;
+      console.log('✅ Organiser data loaded:', this.organiserData?.organiser_name);
     } catch (error) {
-      console.error('Error loading organiser data:', error);
-      app.showNotification('Failed to load organiser data', 'error');
+      console.error('💥 Error loading organiser data:', error);
+      console.error('💥 Error details:', error.message, error.status);
+      app.showNotification('Failed to load organiser data: ' + (error.message || 'Unknown error'), 'error');
     }
   }
 
   async loadDashboardData() {
     try {
+      console.log('📊 Loading dashboard data...');
       const [statsResponse, gamesResponse] = await Promise.all([
         app.apiCall('/organiser/stats'),
         app.apiCall('/organiser/games?status=upcoming')

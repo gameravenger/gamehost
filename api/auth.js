@@ -309,8 +309,54 @@ router.get('/profile', authenticateToken, async (req, res) => {
 });
 
 // Verify token endpoint
-router.get('/verify', authenticateToken, (req, res) => {
-  res.json({ valid: true, user: req.user });
+router.get('/verify', authenticateToken, async (req, res) => {
+  try {
+    console.log('🔍 Verifying token for user:', req.user.userId);
+    
+    // Get full user data from database
+    const { data: user, error } = await supabaseAdmin
+      .from('users')
+      .select('id, username, email, role, is_active')
+      .eq('id', req.user.userId)
+      .single();
+
+    if (error || !user) {
+      console.log('❌ User not found during verification:', req.user.userId);
+      return res.status(401).json({ valid: false, error: 'User not found' });
+    }
+
+    if (!user.is_active) {
+      console.log('❌ User account deactivated:', user.email);
+      return res.status(401).json({ valid: false, error: 'Account deactivated' });
+    }
+
+    // For organisers, get organiser data
+    let organiserData = null;
+    if (user.role === 'organiser') {
+      const { data: organiser } = await supabaseAdmin
+        .from('organisers')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      organiserData = organiser;
+    }
+
+    console.log('✅ Token verification successful for:', user.username);
+    
+    res.json({ 
+      valid: true, 
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        organiserData: organiserData
+      }
+    });
+  } catch (error) {
+    console.error('💥 Token verification error:', error);
+    res.status(500).json({ valid: false, error: 'Internal server error' });
+  }
 });
 
 module.exports = router;

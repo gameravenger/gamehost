@@ -113,18 +113,30 @@ class AdminManager {
 
   async loadDashboardData() {
     try {
+      console.log('📊 Loading admin dashboard data...');
+      console.log('🔑 Current user:', app.user);
+      console.log('🎫 Current token:', app.token ? 'Present' : 'Missing');
+      
       // Load basic stats (simplified)
       const [usersResponse, organisersResponse, gamesResponse] = await Promise.all([
-        app.apiCall('/admin/users').catch(() => ({ users: [] })),
-        app.apiCall('/admin/organisers/pending').catch(() => ({ organisers: [] })),
-        app.apiCall('/admin/games').catch(() => ({ games: [] }))
+        app.apiCall('/admin/users').catch(err => { console.error('Users API error:', err); return { users: [] }; }),
+        app.apiCall('/admin/organisers').catch(err => { console.error('Organisers API error:', err); return { organisers: [] }; }),
+        app.apiCall('/admin/games').catch(err => { console.error('Games API error:', err); return { games: [] }; })
       ]);
+
+      console.log('📊 Dashboard responses:', { 
+        users: usersResponse.users?.length, 
+        organisers: organisersResponse.organisers?.length, 
+        games: gamesResponse.games?.length 
+      });
 
       // Update stats
       document.getElementById('totalUsers').textContent = usersResponse.users?.length || 0;
       document.getElementById('totalOrganisers').textContent = organisersResponse.organisers?.filter(o => o.is_approved).length || 0;
       document.getElementById('totalGames').textContent = gamesResponse.games?.length || 0;
       document.getElementById('platformRevenue').textContent = '₹0'; // Would calculate from actual data
+      
+      console.log('✅ Admin dashboard data loaded successfully');
       
       // Update pending organisers count
       const pendingCount = organisersResponse.organisers?.filter(o => !o.is_approved).length || 0;
@@ -171,11 +183,15 @@ class AdminManager {
 
   async loadOrganisers() {
     try {
-      const response = await app.apiCall('/admin/organisers/pending');
+      console.log('🏢 Loading all organisers...');
+      const response = await app.apiCall('/admin/organisers');
+      console.log('📊 Organisers response:', response);
+      console.log('✅ Organisers loaded:', response.organisers?.length || 0);
       this.renderOrganisersTable(response.organisers || []);
     } catch (error) {
-      console.error('Error loading organisers:', error);
-      app.showNotification('Failed to load organisers', 'error');
+      console.error('💥 Error loading organisers:', error);
+      console.error('💥 Error details:', error.message, error.status);
+      app.showNotification('Failed to load organisers: ' + (error.message || 'Unknown error'), 'error');
     }
   }
 

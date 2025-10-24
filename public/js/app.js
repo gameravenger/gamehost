@@ -147,14 +147,28 @@ class GamePlatform {
       options.body = JSON.stringify(data);
     }
 
-    const response = await fetch(url, options);
-    const result = await response.json();
+    console.log(`🌐 API Call: ${method} ${url}`);
+    console.log('🎫 Token present:', !!this.token);
 
-    if (!response.ok) {
-      throw new Error(result.error || 'API call failed');
+    try {
+      const response = await fetch(url, options);
+      const result = await response.json();
+
+      console.log(`📡 API Response: ${response.status} ${response.statusText}`);
+      
+      if (!response.ok) {
+        console.error('❌ API Error:', result);
+        const error = new Error(result.error || 'API call failed');
+        error.status = response.status;
+        throw error;
+      }
+
+      console.log('✅ API Success:', endpoint);
+      return result;
+    } catch (error) {
+      console.error('💥 API Call Failed:', error);
+      throw error;
     }
-
-    return result;
   }
 
   // UI Update Methods

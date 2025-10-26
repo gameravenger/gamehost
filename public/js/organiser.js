@@ -71,7 +71,24 @@ class OrganiserManager {
 
     // Sidebar toggle for mobile
     document.getElementById('sidebarToggle')?.addEventListener('click', () => {
-      document.getElementById('sidebar').classList.toggle('open');
+      this.toggleSidebar();
+    });
+
+    // Mobile sidebar toggle
+    document.getElementById('mobileSidebarToggle')?.addEventListener('click', () => {
+      this.toggleSidebar();
+    });
+
+    // Sidebar backdrop
+    document.getElementById('sidebarBackdrop')?.addEventListener('click', () => {
+      this.closeSidebar();
+    });
+
+    // Close sidebar with ESC key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        this.closeSidebar();
+      }
     });
 
     // Profile form
@@ -145,8 +162,34 @@ class OrganiserManager {
     });
   }
 
+  toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    
+    sidebar.classList.toggle('open');
+    
+    if (sidebar.classList.contains('open')) {
+      backdrop.classList.add('active');
+    } else {
+      backdrop.classList.remove('active');
+    }
+  }
+
+  closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const backdrop = document.getElementById('sidebarBackdrop');
+    
+    sidebar.classList.remove('open');
+    backdrop.classList.remove('active');
+  }
+
   switchSection(section) {
     this.currentSection = section;
+    
+    // Close sidebar on mobile when switching sections
+    if (window.innerWidth <= 1024) {
+      this.closeSidebar();
+    }
 
     // Update navigation
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -319,7 +362,6 @@ class OrganiserManager {
       
       // Extract Google Drive folder ID from URL
       const sheetsFolder = formData.get('sheetsFolder');
-      const googleDrive = require('../config/google-drive');
       let sheetsFolderId = null;
       
       if (sheetsFolder) {

@@ -205,6 +205,41 @@ class OrganiserManager {
 
     // Load section data
     this.loadSectionData(section);
+    
+    // Initialize image upload widgets when switching to create-game section
+    if (section === 'create-game') {
+      setTimeout(() => this.initializeImageUploads(), 100);
+    }
+  }
+
+  initializeImageUploads() {
+    // Initialize banner image upload
+    if (document.getElementById('bannerImageUpload') && !document.getElementById('bannerImageUpload').hasChildNodes()) {
+      imageUploadManager.createUploadWidget(
+        'bannerImageUpload',
+        (imageUrl) => {
+          document.getElementById('bannerImageUrl').value = imageUrl;
+          app.showNotification('✅ Banner image uploaded successfully!', 'success');
+        },
+        (error) => {
+          app.showNotification(`❌ Banner upload failed: ${error}`, 'error');
+        }
+      );
+    }
+
+    // Initialize QR code upload
+    if (document.getElementById('qrCodeUpload') && !document.getElementById('qrCodeUpload').hasChildNodes()) {
+      imageUploadManager.createUploadWidget(
+        'qrCodeUpload',
+        (imageUrl) => {
+          document.getElementById('paymentQrCodeUrl').value = imageUrl;
+          app.showNotification('✅ QR code uploaded successfully!', 'success');
+        },
+        (error) => {
+          app.showNotification(`❌ QR code upload failed: ${error}`, 'error');
+        }
+      );
+    }
   }
 
   async loadSectionData(section) {

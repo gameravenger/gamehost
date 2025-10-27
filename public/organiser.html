@@ -16,6 +16,7 @@
     <!-- Stylesheets -->
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/organiser.css">
+    <link rel="stylesheet" href="/css/imageUpload.css">
 </head>
 <body>
     <!-- Header -->
@@ -254,15 +255,21 @@
                     <form id="createGameForm">
                         <div class="form-section">
                             <h3>Game Information</h3>
+                            <div style="margin-bottom: 15px;">
+                                <a href="/image-upload-guide.html" target="_blank" class="btn btn-secondary btn-sm">
+                                    📸 Image Upload Guide
+                                </a>
+                            </div>
                             <div class="form-group">
                                 <label for="gameName">Game Name</label>
                                 <input type="text" id="gameName" name="gameName" required placeholder="Enter game name">
                             </div>
                             
                             <div class="form-group">
-                                <label for="bannerImageUrl">Banner Image URL</label>
-                                <input type="url" id="bannerImageUrl" name="bannerImageUrl" placeholder="https://example.com/banner.jpg">
-                                <small>Upload your banner to a cloud service and paste the URL (Recommended: 400x600px)</small>
+                                <label for="bannerImageUrl">Banner Image</label>
+                                <div id="bannerImageUpload"></div>
+                                <input type="url" id="bannerImageUrl" name="bannerImageUrl" placeholder="Image URL will appear here" readonly style="margin-top: 10px;">
+                                <small>Upload your banner image (Recommended: 400x600px portrait)</small>
                             </div>
                             
                             <div class="form-group">
@@ -306,9 +313,10 @@
                         <div class="form-section">
                             <h3>Payment & Meeting</h3>
                             <div class="form-group">
-                                <label for="paymentQrCodeUrl">Payment QR Code URL</label>
-                                <input type="url" id="paymentQrCodeUrl" name="paymentQrCodeUrl" required placeholder="https://example.com/qr-code.jpg">
-                                <small>Upload your UPI QR code image and paste the URL</small>
+                                <label for="paymentQrCodeUrl">Payment QR Code</label>
+                                <div id="qrCodeUpload"></div>
+                                <input type="url" id="paymentQrCodeUrl" name="paymentQrCodeUrl" placeholder="QR code URL will appear here" readonly style="margin-top: 10px;" required>
+                                <small>Upload your UPI QR code image for payments</small>
                             </div>
                             
                             <div class="form-row">
@@ -599,6 +607,7 @@
 
     <!-- Scripts -->
     <script src="/js/app.js"></script>
+    <script src="/js/imageUpload.js"></script>
     <script src="/js/organiser.js"></script>
 </body>
 </html>

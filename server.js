@@ -91,6 +91,10 @@ app.get('/help', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'contact.html'));
 });
 
+app.get('/image-upload-guide.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'image-upload-guide.html'));
+});
+
 // Handle 404
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

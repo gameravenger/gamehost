@@ -861,26 +861,40 @@ class OrganiserManager {
       const gameId = formData.get('endGameId') || document.getElementById('endGameId').value;
       
       const winners = [];
+      const winnerInputs = document.getElementById('winnerInputs');
+      const winnerCount = winnerInputs.children.length;
       
-      // Collect winners data
-      for (let i = 1; i <= 3; i++) {
+      // Collect winners data from all winner inputs
+      for (let i = 1; i <= winnerCount; i++) {
         const username = formData.get(`winner${i}`);
         const prize = formData.get(`prize${i}`);
         
-        if (username && prize) {
+        if (username && username.trim() && prize && parseFloat(prize) > 0) {
           winners.push({
-            userId: username, // In real implementation, you'd need to resolve username to userId
+            userId: username.trim(), // In real implementation, you'd need to resolve username to userId
             position: i,
             prizeAmount: parseFloat(prize)
           });
         }
       }
 
+      if (winners.length === 0) {
+        app.showNotification('Please add at least one winner', 'warning');
+        return;
+      }
+
+      // Validate that 1st place winner is provided
+      const firstPlace = winners.find(w => w.position === 1);
+      if (!firstPlace) {
+        app.showNotification('1st place winner is required', 'error');
+        return;
+      }
+
       const response = await app.apiCall(`/organiser/games/${gameId}/end`, 'POST', {
         winners: winners
       });
 
-      app.showNotification('Game ended successfully and winners added', 'success');
+      app.showNotification(`Game ended successfully with ${winners.length} winner(s)`, 'success');
       this.closeEndGameModal();
       
       // Reload games

@@ -42,9 +42,13 @@ class GamesManager {
         return '/images/default-game.svg';
       }
       
-      // Fix Google Drive sharing URLs
-      if (imageUrl.includes('drive.google.com') && imageUrl.includes('sharing')) {
-        console.warn('Google Drive sharing URL detected, using fallback:', imageUrl);
+      // Fix Google Drive sharing URLs (view?usp=sharing)
+      if (imageUrl.includes('drive.google.com') && imageUrl.includes('view?usp=sharing')) {
+        const fileId = imageUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (fileId) {
+          return `https://drive.google.com/uc?export=view&id=${fileId[1]}`;
+        }
+        console.warn('Invalid Google Drive sharing URL:', imageUrl);
         return '/images/default-game.svg';
       }
       

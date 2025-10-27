@@ -781,7 +781,78 @@ class OrganiserManager {
 
   showEndGameModal(gameId) {
     document.getElementById('endGameId').value = gameId;
+    
+    // Reset winner inputs to default 3
+    this.resetWinnerInputs();
+    
     document.getElementById('endGameModal').style.display = 'block';
+  }
+
+  resetWinnerInputs() {
+    const winnerInputs = document.getElementById('winnerInputs');
+    winnerInputs.innerHTML = `
+      <div class="winner-input" data-position="1">
+        <label>1st Place Winner</label>
+        <input type="text" name="winner1" placeholder="Username" required>
+        <input type="number" name="prize1" placeholder="Prize Amount (₹)" required min="0">
+      </div>
+      <div class="winner-input" data-position="2">
+        <label>2nd Place Winner</label>
+        <input type="text" name="winner2" placeholder="Username">
+        <input type="number" name="prize2" placeholder="Prize Amount (₹)" min="0">
+      </div>
+      <div class="winner-input" data-position="3">
+        <label>3rd Place Winner</label>
+        <input type="text" name="winner3" placeholder="Username">
+        <input type="number" name="prize3" placeholder="Prize Amount (₹)" min="0">
+      </div>
+    `;
+  }
+
+  addWinnerField() {
+    const winnerInputs = document.getElementById('winnerInputs');
+    const currentCount = winnerInputs.children.length;
+    
+    if (currentCount >= 15) {
+      app.showNotification('Maximum 15 winners allowed', 'warning');
+      return;
+    }
+    
+    const newPosition = currentCount + 1;
+    const winnerDiv = document.createElement('div');
+    winnerDiv.className = 'winner-input';
+    winnerDiv.setAttribute('data-position', newPosition);
+    
+    const positionText = this.getPositionText(newPosition);
+    
+    winnerDiv.innerHTML = `
+      <label>${positionText} Place Winner</label>
+      <input type="text" name="winner${newPosition}" placeholder="Username">
+      <input type="number" name="prize${newPosition}" placeholder="Prize Amount (₹)" min="0">
+    `;
+    
+    winnerInputs.appendChild(winnerDiv);
+  }
+
+  removeWinnerField() {
+    const winnerInputs = document.getElementById('winnerInputs');
+    const currentCount = winnerInputs.children.length;
+    
+    if (currentCount <= 3) {
+      app.showNotification('Minimum 3 winner fields required', 'warning');
+      return;
+    }
+    
+    winnerInputs.removeChild(winnerInputs.lastElementChild);
+  }
+
+  getPositionText(position) {
+    const positions = {
+      1: '1st', 2: '2nd', 3: '3rd', 4: '4th', 5: '5th',
+      6: '6th', 7: '7th', 8: '8th', 9: '9th', 10: '10th',
+      11: '11th', 12: '12th', 13: '13th', 14: '14th', 15: '15th'
+    };
+    return positions[position] || `${position}th`;
   }
 
   async endGame() {

@@ -3,9 +3,6 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// Import game scheduler
-const gameScheduler = require('./services/gameScheduler');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -32,16 +29,6 @@ app.use('/api/organiser', organiserRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/contact', contactRoutes);
-
-// Game scheduler API endpoints (for testing and monitoring)
-app.get('/api/scheduler/status', (req, res) => {
-  res.json(gameScheduler.getStatus());
-});
-
-app.post('/api/scheduler/run', (req, res) => {
-  gameScheduler.checkGames();
-  res.json({ message: 'Game scheduler check triggered' });
-});
 
 // Serve HTML files for different routes
 app.get('/', (req, res) => {
@@ -111,9 +98,6 @@ app.get('*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  
-  // Start the game scheduler
-  gameScheduler.start();
 });
 
 module.exports = app;

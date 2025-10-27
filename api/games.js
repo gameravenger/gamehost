@@ -193,7 +193,7 @@ router.get('/:id', async (req, res) => {
     }
 
     // Get participant count
-    const { count: participantCount } = await supabase
+    const { count: participantCount } = await supabaseAdmin
       .from('game_participants')
       .select('*', { count: 'exact' })
       .eq('game_id', id)
@@ -221,7 +221,7 @@ router.post('/:id/register', authenticateToken, async (req, res) => {
     }
 
     // Check if game exists and is active
-    const { data: game, error: gameError } = await supabase
+    const { data: game, error: gameError } = await supabaseAdmin
       .from('games')
       .select('*')
       .eq('id', gameId)
@@ -236,7 +236,7 @@ router.post('/:id/register', authenticateToken, async (req, res) => {
     }
 
     // Check if user already registered for this game
-    const { data: existingParticipation } = await supabase
+    const { data: existingParticipation } = await supabaseAdmin
       .from('game_participants')
       .select('*')
       .eq('game_id', gameId)
@@ -257,8 +257,8 @@ router.post('/:id/register', authenticateToken, async (req, res) => {
       totalAmount = game.price_per_sheet_3_plus * sheetsSelected;
     }
 
-    // Create participation record
-    const { data: participation, error } = await supabase
+    // Create participation record using admin client to bypass RLS
+    const { data: participation, error } = await supabaseAdmin
       .from('game_participants')
       .insert([{
         game_id: gameId,
@@ -292,7 +292,7 @@ router.get('/user/participations', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId;
 
-    const { data: participations, error } = await supabase
+    const { data: participations, error } = await supabaseAdmin
       .from('game_participants')
       .select(`
         *,
@@ -327,7 +327,7 @@ router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
 
     // Check if user is approved participant
-    const { data: participation, error } = await supabase
+    const { data: participation, error } = await supabaseAdmin
       .from('game_participants')
       .select('*')
       .eq('game_id', gameId)
@@ -340,7 +340,7 @@ router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
     }
 
     // Get game details with sheets folder
-    const { data: game } = await supabase
+    const { data: game } = await supabaseAdmin
       .from('games')
       .select('sheets_folder_id, name')
       .eq('id', gameId)
@@ -351,7 +351,7 @@ router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
     }
 
     // Mark sheets as downloaded
-    await supabase
+    await supabaseAdmin
       .from('game_participants')
       .update({ sheets_downloaded: true })
       .eq('id', participation.id);
@@ -379,7 +379,7 @@ router.get('/:gameId/sheets/:participationId', authenticateToken, async (req, re
     const userId = req.user.userId;
 
     // Verify participation and approval
-    const { data: participation } = await supabase
+    const { data: participation } = await supabaseAdmin
       .from('game_participants')
       .select(`
         *,
@@ -440,7 +440,7 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
     const userId = req.user.userId;
 
     // Verify user has access to this specific sheet
-    const { data: participation } = await supabase
+    const { data: participation } = await supabaseAdmin
       .from('game_participants')
       .select(`
         *,
@@ -499,7 +499,7 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
     });
 
     // Mark this sheet as accessed (for tracking)
-    await supabase
+    await supabaseAdmin
       .from('game_participants')
       .update({ 
         sheets_downloaded: true,

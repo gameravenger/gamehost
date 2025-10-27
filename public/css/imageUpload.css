@@ -1,212 +1,246 @@
-/* Image Upload Widget Styles */
+/* Google Drive Image Upload Widget Styles */
 
 .image-upload-widget {
   border: 1px solid rgba(255, 107, 53, 0.2);
   border-radius: 12px;
-  padding: 20px;
+  padding: 25px;
   background: var(--card-bg);
-  margin: 10px 0;
+  margin: 15px 0;
 }
 
-.upload-tabs {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-  border-bottom: 1px solid rgba(255, 107, 53, 0.2);
+.drive-header {
+  text-align: center;
+  margin-bottom: 25px;
 }
 
-.upload-tab {
-  background: none;
-  border: none;
-  padding: 10px 15px;
+.drive-header h4 {
+  color: var(--text-light);
+  margin: 0 0 8px 0;
+  font-size: 1.2rem;
+}
+
+.drive-header p {
   color: var(--text-muted);
-  cursor: pointer;
-  border-radius: 8px 8px 0 0;
-  transition: all 0.3s ease;
+  margin: 0;
   font-size: 0.9rem;
 }
 
-.upload-tab.active {
+/* Step-by-step instructions */
+.instruction-steps {
+  margin-bottom: 25px;
+}
+
+.step {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 15px;
+  background: rgba(255, 107, 53, 0.05);
+  border-radius: 8px;
+  border-left: 3px solid var(--primary-color);
+}
+
+.step-number {
   background: var(--primary-color);
   color: white;
-}
-
-.upload-tab:hover:not(.active) {
-  background: rgba(255, 107, 53, 0.1);
-  color: var(--text-light);
-}
-
-.upload-content {
-  display: none;
-}
-
-.upload-content.active {
-  display: block;
-}
-
-/* File Upload Styles */
-.file-drop-zone {
-  border: 2px dashed rgba(255, 107, 53, 0.3);
-  border-radius: 12px;
-  padding: 40px 20px;
-  text-align: center;
-  background: rgba(255, 107, 53, 0.05);
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.file-drop-zone:hover,
-.file-drop-zone.drag-over {
-  border-color: var(--primary-color);
-  background: rgba(255, 107, 53, 0.1);
-}
-
-.drop-zone-content {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 10px;
-}
-
-.upload-icon {
-  font-size: 3rem;
-  opacity: 0.7;
-}
-
-.upload-subtext {
-  color: var(--text-muted);
+  justify-content: center;
+  font-weight: bold;
   font-size: 0.9rem;
-  margin: 0;
+  flex-shrink: 0;
 }
 
-/* Progress Bar */
-.upload-progress {
-  margin-top: 20px;
+.step-content {
+  flex: 1;
 }
 
-.progress-bar {
-  width: 100%;
-  height: 8px;
-  background: rgba(255, 107, 53, 0.2);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
-  width: 0%;
-  transition: width 0.3s ease;
-  animation: progressPulse 2s infinite;
-}
-
-@keyframes progressPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
-.progress-text {
-  text-align: center;
-  margin-top: 10px;
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}
-
-/* URL Input Styles */
-.url-input-section,
-.drive-input-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.url-input-section label,
-.drive-input-section label {
+.step-content strong {
   color: var(--text-light);
+  display: block;
+  margin-bottom: 5px;
+  font-size: 1rem;
+}
+
+.step-content p {
+  color: var(--text-muted);
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.drive-link {
+  color: var(--primary-color);
+  text-decoration: none;
   font-weight: 500;
 }
 
-.url-input-section input,
+.drive-link:hover {
+  text-decoration: underline;
+}
+
+/* Input section */
+.drive-input-section {
+  margin-bottom: 20px;
+}
+
+.drive-input-section label {
+  color: var(--text-light);
+  font-weight: 500;
+  display: block;
+  margin-bottom: 8px;
+}
+
 .drive-input-section input {
-  padding: 12px;
+  width: 100%;
+  padding: 12px 15px;
   border: 1px solid rgba(255, 107, 53, 0.3);
   border-radius: 8px;
   background: var(--input-bg);
   color: var(--text-light);
   font-size: 0.9rem;
+  margin-bottom: 10px;
 }
 
-.url-input-section input:focus,
 .drive-input-section input:focus {
   outline: none;
   border-color: var(--primary-color);
   box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.2);
 }
 
-.url-preview {
-  margin-top: 15px;
-  text-align: center;
-  padding: 15px;
-  background: rgba(255, 107, 53, 0.05);
-  border-radius: 8px;
-}
-
-.url-preview img {
-  border: 1px solid rgba(255, 107, 53, 0.2);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-/* Google Drive Instructions */
-.drive-instructions {
-  background: rgba(255, 107, 53, 0.05);
-  padding: 15px;
-  border-radius: 8px;
-  margin-bottom: 15px;
-}
-
-.drive-instructions h4 {
-  color: var(--text-light);
-  margin: 0 0 10px 0;
-  font-size: 1rem;
-}
-
-.drive-instructions ol {
-  margin: 0;
-  padding-left: 20px;
+.drive-input-section input::placeholder {
   color: var(--text-muted);
+  opacity: 0.7;
 }
 
-.drive-instructions li {
-  margin-bottom: 5px;
-  font-size: 0.9rem;
-}
-
+/* Result section */
 .drive-result {
-  margin-top: 15px;
-  padding: 15px;
+  margin: 20px 0;
+  padding: 20px;
   background: rgba(76, 175, 80, 0.1);
   border: 1px solid rgba(76, 175, 80, 0.3);
   border-radius: 8px;
 }
 
-.drive-result label {
+.result-success h4 {
   color: var(--success-color);
+  margin: 0 0 15px 0;
+  font-size: 1rem;
 }
 
 .drive-result input {
+  width: 100%;
+  padding: 10px 12px;
   background: rgba(76, 175, 80, 0.05);
-  border-color: rgba(76, 175, 80, 0.3);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: 6px;
+  color: var(--text-light);
+  font-size: 0.85rem;
+  margin-bottom: 15px;
+  font-family: monospace;
+}
+
+.result-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Preview section */
+.drive-preview {
+  margin: 20px 0;
+  padding: 20px;
+  background: rgba(255, 107, 53, 0.05);
+  border: 1px solid rgba(255, 107, 53, 0.2);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.drive-preview h4 {
+  color: var(--text-light);
+  margin: 0 0 15px 0;
+  font-size: 1rem;
+}
+
+.drive-preview img {
+  border: 2px solid rgba(255, 107, 53, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Tips section */
+.drive-tips {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.drive-tips h4 {
+  color: #ffc107;
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+}
+
+.drive-tips ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--text-muted);
+}
+
+.drive-tips li {
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.drive-tips strong {
+  color: var(--text-light);
+}
+
+/* Common issues section */
+.common-issues {
+  background: rgba(244, 67, 54, 0.1);
+  border: 1px solid rgba(244, 67, 54, 0.3);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.common-issues h4 {
+  color: #f44336;
+  margin: 0 0 12px 0;
+  font-size: 1rem;
+}
+
+.issue-item {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background: rgba(244, 67, 54, 0.05);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.issue-item strong {
+  color: var(--text-light);
 }
 
 /* Button Styles */
 .image-upload-widget .btn {
-  padding: 8px 16px;
-  border-radius: 6px;
+  padding: 10px 20px;
+  border-radius: 8px;
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.3s ease;
   border: none;
+  text-decoration: none;
+  display: inline-block;
 }
 
 .image-upload-widget .btn-primary {
@@ -216,7 +250,8 @@
 
 .image-upload-widget .btn-primary:hover {
   background: var(--primary-hover);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
 }
 
 .image-upload-widget .btn-secondary {
@@ -227,6 +262,7 @@
 
 .image-upload-widget .btn-secondary:hover {
   background: rgba(255, 107, 53, 0.2);
+  transform: translateY(-1px);
 }
 
 .image-upload-widget .btn-success {
@@ -236,30 +272,59 @@
 
 .image-upload-widget .btn-success:hover {
   background: #45a049;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
 }
 
 /* Responsive Design */
 @media (max-width: 768px) {
-  .upload-tabs {
+  .image-upload-widget {
+    padding: 20px 15px;
+  }
+  
+  .step {
+    flex-direction: column;
+    text-align: center;
+    gap: 10px;
+  }
+  
+  .step-number {
+    align-self: center;
+  }
+  
+  .result-actions {
     flex-direction: column;
   }
   
-  .upload-tab {
-    border-radius: 8px;
-    margin-bottom: 5px;
+  .result-actions .btn {
+    width: 100%;
+    margin-bottom: 10px;
   }
   
-  .file-drop-zone {
-    padding: 30px 15px;
+  .drive-input-section input {
+    font-size: 0.85rem;
   }
   
-  .upload-icon {
-    font-size: 2rem;
+  .drive-result input {
+    font-size: 0.8rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .drive-header h4 {
+    font-size: 1.1rem;
   }
   
-  .url-input-section,
-  .drive-input-section {
-    gap: 15px;
+  .step-content strong {
+    font-size: 0.95rem;
+  }
+  
+  .step-content p {
+    font-size: 0.85rem;
+  }
+  
+  .drive-tips li,
+  .issue-item {
+    font-size: 0.85rem;
   }
 }

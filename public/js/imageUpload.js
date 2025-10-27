@@ -1,100 +1,98 @@
-// Image Upload Handler for GameBlast Mobile
-// Handles image uploads to various cloud services
+// Google Drive Image Upload Handler for GameBlast Mobile
+// Focuses only on Google Drive to save storage costs
 
 class ImageUploadManager {
   constructor() {
-    this.supportedFormats = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-    this.maxFileSize = 5 * 1024 * 1024; // 5MB
-    this.uploadServices = {
-      imgbb: {
-        name: 'ImgBB',
-        apiKey: null, // Will be set from admin panel
-        endpoint: 'https://api.imgbb.com/1/upload'
-      }
-    };
+    // Only Google Drive support to save storage space
   }
 
-  // Create image upload widget (no direct upload to save storage)
+  // Create Google Drive image upload widget
   createUploadWidget(containerId, onSuccess, onError) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
     container.innerHTML = `
       <div class="image-upload-widget">
-        <div class="upload-tabs">
-          <button class="upload-tab active" data-tab="drive">📂 Google Drive</button>
-          <button class="upload-tab" data-tab="ibb">🖼️ ImgBB</button>
-          <button class="upload-tab" data-tab="url">🔗 Direct URL</button>
+        <div class="drive-header">
+          <h4>📂 Upload Image via Google Drive</h4>
+          <p>Free, reliable, and saves our storage space!</p>
         </div>
         
-        <!-- Google Drive Tab -->
-        <div class="upload-content active" id="drive-upload">
-          <div class="drive-instructions">
-            <h4>📂 How to use Google Drive:</h4>
-            <ol>
-              <li>Upload your image to Google Drive</li>
-              <li>Right-click → "Get link"</li>
-              <li>Set to "Anyone with the link can view"</li>
-              <li>Copy and paste the link below</li>
-            </ol>
+        <div class="drive-instructions">
+          <div class="instruction-steps">
+            <div class="step">
+              <div class="step-number">1</div>
+              <div class="step-content">
+                <strong>Upload to Google Drive</strong>
+                <p>Go to <a href="https://drive.google.com" target="_blank" class="drive-link">drive.google.com</a> and upload your image</p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-number">2</div>
+              <div class="step-content">
+                <strong>Get Sharing Link</strong>
+                <p>Right-click your image → "Get link" → Change to <strong>"Anyone with the link can view"</strong></p>
+              </div>
+            </div>
+            <div class="step">
+              <div class="step-number">3</div>
+              <div class="step-content">
+                <strong>Paste Link Below</strong>
+                <p>Copy the sharing URL and paste it in the field below</p>
+              </div>
+            </div>
           </div>
-          <div class="drive-input-section">
-            <label>Google Drive Link:</label>
-            <input type="url" id="driveUrl" placeholder="https://drive.google.com/file/d/..." class="form-control">
-            <button type="button" class="btn btn-secondary" onclick="imageUploadManager.processDriveUrl()">
-              🔄 Convert Link
-            </button>
-          </div>
-          <div class="drive-result" id="driveResult" style="display: none;">
-            <label>Direct Image URL:</label>
+        </div>
+        
+        <div class="drive-input-section">
+          <label>Google Drive Sharing Link:</label>
+          <input type="url" id="driveUrl" placeholder="https://drive.google.com/file/d/1ABC123/view?usp=sharing" class="form-control">
+          <button type="button" class="btn btn-primary" onclick="imageUploadManager.processDriveUrl()">
+            🔄 Convert to Direct Link
+          </button>
+        </div>
+        
+        <div class="drive-result" id="driveResult" style="display: none;">
+          <div class="result-success">
+            <h4>✅ Success! Direct Image URL Ready:</h4>
             <input type="url" id="driveDirectUrl" class="form-control" readonly>
-            <button type="button" class="btn btn-success" onclick="imageUploadManager.useDriveUrl()">
-              ✅ Use This URL
-            </button>
+            <div class="result-actions">
+              <button type="button" class="btn btn-success" onclick="imageUploadManager.useDriveUrl()">
+                ✅ Use This URL
+              </button>
+              <button type="button" class="btn btn-secondary" onclick="imageUploadManager.testDriveUrl()">
+                🔍 Test Image
+              </button>
+            </div>
           </div>
         </div>
         
-        <!-- ImgBB Tab -->
-        <div class="upload-content" id="ibb-upload">
-          <div class="ibb-instructions">
-            <h4>🖼️ How to use ImgBB:</h4>
-            <ol>
-              <li>Go to <a href="https://imgbb.com" target="_blank">imgbb.com</a></li>
-              <li>Upload your image (drag & drop or browse)</li>
-              <li>Copy the <strong>Direct Link</strong> (not the page URL)</li>
-              <li>Paste it below</li>
-            </ol>
-          </div>
-          <div class="ibb-input-section">
-            <label>ImgBB URL:</label>
-            <input type="url" id="ibbUrl" placeholder="https://ibb.co/abc123 or https://i.ibb.co/abc123/image.jpg" class="form-control">
-            <button type="button" class="btn btn-secondary" onclick="imageUploadManager.processIbbUrl()">
-              🔄 Convert Link
-            </button>
-          </div>
-          <div class="ibb-result" id="ibbResult" style="display: none;">
-            <label>Direct Image URL:</label>
-            <input type="url" id="ibbDirectUrl" class="form-control" readonly>
-            <button type="button" class="btn btn-success" onclick="imageUploadManager.useIbbUrl()">
-              ✅ Use This URL
-            </button>
-          </div>
+        <div class="drive-preview" id="drivePreview" style="display: none;">
+          <h4>🖼️ Image Preview:</h4>
+          <img id="drivePreviewImage" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 1px solid rgba(255, 107, 53, 0.3);">
         </div>
         
-        <!-- Direct URL Tab -->
-        <div class="upload-content" id="url-upload">
-          <div class="url-input-section">
-            <label>Direct Image URL:</label>
-            <input type="url" id="imageUrl" placeholder="https://example.com/image.jpg" class="form-control">
-            <button type="button" class="btn btn-secondary" onclick="imageUploadManager.validateImageUrl()">
-              🔍 Test & Preview
-            </button>
+        <div class="drive-tips">
+          <h4>💡 Tips for Best Results:</h4>
+          <ul>
+            <li><strong>Banner Images:</strong> Use 400x600px (portrait) for best appearance</li>
+            <li><strong>QR Codes:</strong> Use 300x300px minimum for clear scanning</li>
+            <li><strong>File Format:</strong> JPG or PNG works best</li>
+            <li><strong>Permissions:</strong> Must be set to "Anyone with the link can view"</li>
+            <li><strong>Wait Time:</strong> Allow 2-3 minutes after changing permissions</li>
+          </ul>
+        </div>
+        
+        <div class="common-issues">
+          <h4>❓ Common Issues & Solutions:</h4>
+          <div class="issue-item">
+            <strong>Image not loading:</strong> Make sure permissions are set to "Anyone with the link can view"
           </div>
-          <div class="url-preview" id="urlPreview" style="display: none;">
-            <img id="previewImage" style="max-width: 200px; max-height: 200px; border-radius: 8px;">
-            <button type="button" class="btn btn-success" onclick="imageUploadManager.useDirectUrl()">
-              ✅ Use This URL
-            </button>
+          <div class="issue-item">
+            <strong>Still not working:</strong> Wait 2-3 minutes after changing permissions, then try again
+          </div>
+          <div class="issue-item">
+            <strong>Wrong URL format:</strong> Use the sharing URL from Google Drive, not the direct file URL
           </div>
         </div>
       </div>
@@ -106,59 +104,6 @@ class ImageUploadManager {
   setupEventListeners(onSuccess, onError) {
     this.onSuccess = onSuccess;
     this.onError = onError;
-    
-    // Tab switching
-    document.querySelectorAll('.upload-tab').forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        const tabName = e.target.dataset.tab;
-        this.switchTab(tabName);
-      });
-    });
-  }
-
-  switchTab(tabName) {
-    // Update tab buttons
-    document.querySelectorAll('.upload-tab').forEach(tab => {
-      tab.classList.remove('active');
-    });
-    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
-
-    // Update content
-    document.querySelectorAll('.upload-content').forEach(content => {
-      content.classList.remove('active');
-    });
-    document.getElementById(`${tabName}-upload`).classList.add('active');
-  }
-
-
-  async validateImageUrl() {
-    const urlInput = document.getElementById('imageUrl');
-    const preview = document.getElementById('urlPreview');
-    const previewImg = document.getElementById('previewImage');
-    
-    const url = urlInput.value.trim();
-    if (!url) {
-      app.showNotification('Please enter an image URL', 'warning');
-      return;
-    }
-
-    try {
-      // Test if URL is accessible
-      previewImg.onload = () => {
-        preview.style.display = 'block';
-        app.showNotification('✅ Image URL is valid!', 'success');
-      };
-      
-      previewImg.onerror = () => {
-        preview.style.display = 'none';
-        app.showNotification('❌ Image URL is not accessible', 'error');
-      };
-      
-      previewImg.src = url;
-      
-    } catch (error) {
-      app.showNotification('Invalid image URL', 'error');
-    }
   }
 
   processDriveUrl() {
@@ -175,7 +120,7 @@ class ImageUploadManager {
     // Extract file ID from Google Drive URL
     const fileId = driveUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
     if (!fileId) {
-      app.showNotification('Invalid Google Drive URL format', 'error');
+      app.showNotification('❌ Invalid Google Drive URL format. Please use the sharing URL from Google Drive.', 'error');
       return;
     }
 
@@ -184,114 +129,48 @@ class ImageUploadManager {
     directUrlInput.value = directUrl;
     result.style.display = 'block';
     
-    app.showNotification('✅ Google Drive link converted!', 'success');
+    app.showNotification('✅ Google Drive link converted! Click "Test Image" to verify.', 'success');
   }
 
   useDriveUrl() {
     const directUrl = document.getElementById('driveDirectUrl').value;
     if (this.onSuccess) {
       this.onSuccess(directUrl);
+      app.showNotification('✅ Image URL added to form!', 'success');
     }
   }
 
-  processIbbUrl() {
-    const ibbInput = document.getElementById('ibbUrl');
-    const result = document.getElementById('ibbResult');
-    const directUrlInput = document.getElementById('ibbDirectUrl');
+  async testDriveUrl() {
+    const directUrl = document.getElementById('driveDirectUrl').value;
+    const preview = document.getElementById('drivePreview');
+    const previewImg = document.getElementById('drivePreviewImage');
     
-    const ibbUrl = ibbInput.value.trim();
-    if (!ibbUrl) {
-      app.showNotification('Please enter an ImgBB link', 'warning');
+    if (!directUrl) {
+      app.showNotification('No URL to test', 'warning');
       return;
     }
 
-    let directUrl = null;
-
-    // If it's already a direct URL, use it
-    if (ibbUrl.includes('i.ibb.co/') && (ibbUrl.includes('.jpg') || ibbUrl.includes('.png') || ibbUrl.includes('.gif'))) {
-      directUrl = ibbUrl;
-    }
-    // If it's a page URL, try to convert it
-    else if (ibbUrl.includes('ibb.co/')) {
-      const match = ibbUrl.match(/ibb\.co\/([a-zA-Z0-9]+)/);
-      if (match) {
-        const id = match[1];
-        // We'll test multiple possible formats
-        this.testIbbUrls(id, directUrlInput, result);
-        return;
-      }
-    }
-
-    if (directUrl) {
-      directUrlInput.value = directUrl;
-      result.style.display = 'block';
-      app.showNotification('✅ ImgBB URL ready to use!', 'success');
-    } else {
-      app.showNotification('❌ Invalid ImgBB URL format', 'error');
+    app.showNotification('🔍 Testing Google Drive image...', 'info');
+    
+    try {
+      previewImg.onload = () => {
+        preview.style.display = 'block';
+        app.showNotification('✅ Image loads successfully! You can use this URL.', 'success');
+      };
+      
+      previewImg.onerror = () => {
+        preview.style.display = 'none';
+        app.showNotification('❌ Image failed to load. Please check:\n1. File permissions are set to "Anyone with the link can view"\n2. Wait 2-3 minutes after changing permissions\n3. Make sure the file is an image (JPG/PNG)', 'error');
+      };
+      
+      previewImg.src = directUrl;
+      
+    } catch (error) {
+      app.showNotification('❌ Error testing image URL', 'error');
     }
   }
 
-  async testIbbUrls(id, directUrlInput, result) {
-    const possibleUrls = [
-      `https://i.ibb.co/${id}.jpg`,
-      `https://i.ibb.co/${id}.png`,
-      `https://i.ibb.co/${id}.gif`,
-      `https://i.ibb.co/${id}/image.jpg`,
-      `https://i.ibb.co/${id}/image.png`
-    ];
-
-    app.showNotification('🔍 Testing ImgBB URL formats...', 'info');
-
-    for (const url of possibleUrls) {
-      try {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        
-        const isValid = await new Promise((resolve) => {
-          img.onload = () => resolve(true);
-          img.onerror = () => resolve(false);
-          img.src = url;
-          
-          // Timeout after 3 seconds
-          setTimeout(() => resolve(false), 3000);
-        });
-
-        if (isValid) {
-          directUrlInput.value = url;
-          result.style.display = 'block';
-          app.showNotification('✅ Found working ImgBB URL!', 'success');
-          return;
-        }
-      } catch (error) {
-        continue;
-      }
-    }
-
-    app.showNotification('❌ Could not find a working ImgBB direct URL. Try copying the direct link from ImgBB.', 'error');
-  }
-
-  useIbbUrl() {
-    const directUrl = document.getElementById('ibbDirectUrl').value;
-    if (this.onSuccess) {
-      this.onSuccess(directUrl);
-    }
-  }
-
-  useDirectUrl() {
-    const directUrl = document.getElementById('imageUrl').value;
-    if (this.onSuccess) {
-      this.onSuccess(directUrl);
-    }
-  }
-
-  showProgress(show) {
-    const progress = document.getElementById('uploadProgress');
-    if (progress) {
-      progress.style.display = show ? 'block' : 'none';
-    }
-  }
-
-  // Get valid image URL (same as existing function but enhanced)
+  // Enhanced URL validation for the main system
   getValidImageUrl(imageUrl) {
     if (!imageUrl) return '/images/default-game.svg';
     
@@ -300,21 +179,9 @@ class ImageUploadManager {
       return imageUrl.replace('.jpg', '.svg');
     }
     
-    // For external URLs, validate and fix them
+    // For external URLs, handle Google Drive specifically
     if (imageUrl.startsWith('http')) {
-      // Fix ibb.co URLs - convert page URLs to direct image URLs
-      if (imageUrl.includes('ibb.co/')) {
-        // Extract image ID from ibb.co URL
-        const match = imageUrl.match(/ibb\.co\/([a-zA-Z0-9]+)/);
-        if (match) {
-          // Convert to direct image URL
-          return `https://i.ibb.co/${match[1]}.jpg`;
-        }
-        console.warn('Invalid ibb.co URL:', imageUrl);
-        return '/images/default-game.svg';
-      }
-      
-      // Fix Google Drive URLs
+      // Handle Google Drive URLs
       if (imageUrl.includes('drive.google.com/file/')) {
         const fileId = imageUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
         if (fileId) {
@@ -324,13 +191,19 @@ class ImageUploadManager {
         return '/images/default-game.svg';
       }
       
+      // Handle Google Drive direct URLs (already converted)
+      if (imageUrl.includes('drive.google.com/uc?export=view')) {
+        return imageUrl; // Already in correct format
+      }
+      
       // For other external URLs, validate they look like image URLs
       if (imageUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i)) {
         return imageUrl; // Valid image URL
       }
       
-      console.warn('Invalid image URL format:', imageUrl);
-      return '/images/default-game.svg';
+      // If it's an unknown external URL, try it as-is but warn
+      console.warn('Unknown external URL format:', imageUrl);
+      return imageUrl;
     }
     
     return imageUrl;

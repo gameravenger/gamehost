@@ -423,6 +423,9 @@ router.post('/games/:id/end', authenticateOrganiser, async (req, res) => {
       .from('games')
       .update({
         status: 'ended',
+        end_reason: 'manual_end',
+        ended_at: new Date().toISOString(),
+        ended_by: req.user.userId,
         updated_at: new Date().toISOString()
       })
       .eq('id', id);

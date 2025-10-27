@@ -561,19 +561,27 @@
                 <input type="hidden" id="endGameId">
                 
                 <div class="winners-section">
-                    <h3>Winners</h3>
-                    <div class="winner-inputs">
-                        <div class="winner-input">
+                    <h3>Winners (Up to 15)</h3>
+                    <div class="winners-controls">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="organiserManager.addWinnerField()">
+                            ➕ Add Winner
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="organiserManager.removeWinnerField()">
+                            ➖ Remove Winner
+                        </button>
+                    </div>
+                    <div class="winner-inputs" id="winnerInputs">
+                        <div class="winner-input" data-position="1">
                             <label>1st Place Winner</label>
                             <input type="text" name="winner1" placeholder="Username" required>
                             <input type="number" name="prize1" placeholder="Prize Amount (₹)" required min="0">
                         </div>
-                        <div class="winner-input">
+                        <div class="winner-input" data-position="2">
                             <label>2nd Place Winner</label>
                             <input type="text" name="winner2" placeholder="Username">
                             <input type="number" name="prize2" placeholder="Prize Amount (₹)" min="0">
                         </div>
-                        <div class="winner-input">
+                        <div class="winner-input" data-position="3">
                             <label>3rd Place Winner</label>
                             <input type="text" name="winner3" placeholder="Username">
                             <input type="number" name="prize3" placeholder="Prize Amount (₹)" min="0">

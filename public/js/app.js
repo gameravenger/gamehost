@@ -8,6 +8,38 @@ class GamePlatform {
     this.init();
   }
 
+  // Helper method to get valid image URL
+  getValidImageUrl(imageUrl) {
+    if (!imageUrl) return '/images/default-game.svg';
+    
+    // If it's a local path, try SVG version first
+    if (imageUrl.startsWith('/images/') && imageUrl.endsWith('.jpg')) {
+      return imageUrl.replace('.jpg', '.svg');
+    }
+    
+    // For external URLs, validate them
+    if (imageUrl.startsWith('http')) {
+      // Fix common issues with external URLs
+      if (imageUrl.includes('ibb.co/') && !imageUrl.includes('.jpg') && !imageUrl.includes('.png')) {
+        // ibb.co page URLs are not direct image URLs
+        return '/images/default-game.svg';
+      }
+      
+      if (imageUrl.includes('drive.google.com/file/')) {
+        // Google Drive view URLs need to be converted to direct links
+        const fileId = imageUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (fileId) {
+          return `https://drive.google.com/uc?export=view&id=${fileId[1]}`;
+        }
+        return '/images/default-game.svg';
+      }
+      
+      return imageUrl; // Return as-is for other external URLs
+    }
+    
+    return imageUrl;
+  }
+
   async init() {
     await this.loadAdScripts();
     await this.loadPublicSettings();
@@ -246,7 +278,7 @@ class GamePlatform {
         const adsGrid = adsContainer.querySelector('.ads-grid');
         adsGrid.innerHTML = response.ads.map(ad => `
           <a href="${ad.link_url}" target="_blank" class="ad-banner">
-            <img src="${ad.banner_image_url}" alt="${ad.title || 'Sponsored Ad'}" loading="lazy">
+            <img src="${this.getValidImageUrl(ad.banner_image_url)}" alt="${ad.title || 'Sponsored Ad'}" loading="lazy">
           </a>
         `).join('');
         adsContainer.style.display = 'block';
@@ -302,7 +334,7 @@ class GamePlatform {
     const gameGrid = container.querySelector('.game-grid');
     gameGrid.innerHTML = games.map(game => `
       <div class="game-card ${game.has_glow_dot ? 'glow-dot' : ''} ${game.has_glow_shadow ? 'glow-shadow' : ''}">
-        <img src="${game.banner_image_url || '/images/default-game.svg'}" 
+        <img src="${this.getValidImageUrl(game.banner_image_url)}" 
              alt="${game.name}" loading="lazy"
              onerror="this.onerror=null; this.src='/images/default-game.svg'; console.log('🖼️ Image fallback for: ${game.name}');">
         <div class="game-info">

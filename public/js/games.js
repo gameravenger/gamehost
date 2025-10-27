@@ -9,6 +9,38 @@ class GamesManager {
     this.init();
   }
 
+  // Helper method to get valid image URL
+  getValidImageUrl(imageUrl) {
+    if (!imageUrl) return '/images/default-game.svg';
+    
+    // If it's a local path, try SVG version first
+    if (imageUrl.startsWith('/images/') && imageUrl.endsWith('.jpg')) {
+      return imageUrl.replace('.jpg', '.svg');
+    }
+    
+    // For external URLs, validate them
+    if (imageUrl.startsWith('http')) {
+      // Fix common issues with external URLs
+      if (imageUrl.includes('ibb.co/') && !imageUrl.includes('.jpg') && !imageUrl.includes('.png')) {
+        // ibb.co page URLs are not direct image URLs
+        return '/images/default-game.svg';
+      }
+      
+      if (imageUrl.includes('drive.google.com/file/')) {
+        // Google Drive view URLs need to be converted to direct links
+        const fileId = imageUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (fileId) {
+          return `https://drive.google.com/uc?export=view&id=${fileId[1]}`;
+        }
+        return '/images/default-game.svg';
+      }
+      
+      return imageUrl; // Return as-is for other external URLs
+    }
+    
+    return imageUrl;
+  }
+
   async init() {
     this.setupEventListeners();
     await this.loadGames();
@@ -142,7 +174,7 @@ class GamesManager {
       <div class="game-card-large ${game.has_glow_dot ? 'glow-dot' : ''} ${game.has_glow_shadow ? 'glow-shadow' : ''}" 
            data-game-id="${game.id}">
         <div class="game-banner">
-          <img src="${game.banner_image_url || '/images/default-game.svg'}" 
+          <img src="${this.getValidImageUrl(game.banner_image_url)}" 
                alt="${game.name}" loading="lazy" 
                onerror="this.onerror=null; this.src='/images/default-game.svg'; console.log('🖼️ Image fallback for: ${game.name}');">
           <div class="game-status ${statusClass}">${statusText}</div>
@@ -202,7 +234,7 @@ class GamesManager {
       
       const modalContent = document.getElementById('gameModalContent');
       modalContent.innerHTML = `
-          <img src="${game.banner_image_url || '/images/default-game.svg'}"
+          <img src="${this.getValidImageUrl(game.banner_image_url)}"
              alt="${game.name}" class="modal-game-banner">
         
         <h2 class="modal-game-title">${game.name}</h2>

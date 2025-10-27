@@ -11,6 +11,38 @@ class GameDetailsManager {
     this.init();
   }
 
+  // Helper method to get valid image URL
+  getValidImageUrl(imageUrl) {
+    if (!imageUrl) return '/images/default-game.svg';
+    
+    // If it's a local path, try SVG version first
+    if (imageUrl.startsWith('/images/') && imageUrl.endsWith('.jpg')) {
+      return imageUrl.replace('.jpg', '.svg');
+    }
+    
+    // For external URLs, validate them
+    if (imageUrl.startsWith('http')) {
+      // Fix common issues with external URLs
+      if (imageUrl.includes('ibb.co/') && !imageUrl.includes('.jpg') && !imageUrl.includes('.png')) {
+        // ibb.co page URLs are not direct image URLs
+        return '/images/default-game.svg';
+      }
+      
+      if (imageUrl.includes('drive.google.com/file/')) {
+        // Google Drive view URLs need to be converted to direct links
+        const fileId = imageUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (fileId) {
+          return `https://drive.google.com/uc?export=view&id=${fileId[1]}`;
+        }
+        return '/images/default-game.svg';
+      }
+      
+      return imageUrl; // Return as-is for other external URLs
+    }
+    
+    return imageUrl;
+  }
+
   init() {
     this.gameId = this.getGameIdFromURL();
     if (this.gameId) {
@@ -100,7 +132,7 @@ class GameDetailsManager {
 
     // Game banner and basic info - FIXED: Better image handling
     const bannerImg = document.getElementById('gameBanner');
-    bannerImg.src = this.game.banner_image_url || '/images/default-game.svg';
+    bannerImg.src = this.getValidImageUrl(this.game.banner_image_url);
     bannerImg.onerror = () => {
       bannerImg.onerror = null;
       bannerImg.src = '/images/default-game.svg';
@@ -298,7 +330,7 @@ class GameDetailsManager {
     
     // Set QR code
     if (this.game.payment_qr_code_url) {
-      document.getElementById('paymentQR').src = this.game.payment_qr_code_url;
+      document.getElementById('paymentQR').src = this.getValidImageUrl(this.game.payment_qr_code_url);
     }
 
     // Update payment summary

@@ -610,10 +610,156 @@ class OrganiserManager {
   editGame(gameId) {
     // Find the game
     const game = this.games.find(g => g.id === gameId);
-    if (!game) return;
+    if (!game) {
+      app.showNotification('Game not found', 'error');
+      return;
+    }
 
-    // Populate edit form (simplified for now)
-    app.showNotification('Game editing feature coming soon', 'info');
+    // Show edit game modal with populated form
+    this.showEditGameModal(game);
+  }
+
+  showEditGameModal(game) {
+    const modal = document.getElementById('editGameModal');
+    const content = document.getElementById('editGameContent');
+    
+    content.innerHTML = `
+      <div class="modal-header">
+        <h2>Edit Game: ${game.name}</h2>
+        <p>Update game information and settings</p>
+      </div>
+      
+      <form id="editGameForm">
+        <input type="hidden" id="editGameId" value="${game.id}">
+        
+        <div class="form-section">
+          <h3>Game Information</h3>
+          <div class="form-group">
+            <label for="editGameName">Game Name</label>
+            <input type="text" id="editGameName" name="gameName" value="${game.name}" required>
+          </div>
+          
+          <div class="form-group">
+            <label for="editBannerImageUrl">Banner Image URL</label>
+            <input type="url" id="editBannerImageUrl" name="bannerImageUrl" value="${game.banner_image_url || ''}" placeholder="https://example.com/banner.jpg">
+            <small>Upload your banner to a cloud service and paste the URL</small>
+          </div>
+          
+          <div class="form-group">
+            <label for="editTotalPrize">Total Prize Pool (₹)</label>
+            <input type="number" id="editTotalPrize" name="totalPrize" value="${game.total_prize}" required min="1">
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Pricing Structure</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editPricePerSheet1">Price for 1 Sheet (₹)</label>
+              <input type="number" id="editPricePerSheet1" name="pricePerSheet1" value="${game.price_per_sheet_1}" required min="1">
+            </div>
+            <div class="form-group">
+              <label for="editPricePerSheet2">Price for 2 Sheets (₹ each)</label>
+              <input type="number" id="editPricePerSheet2" name="pricePerSheet2" value="${game.price_per_sheet_2}" required min="1">
+            </div>
+            <div class="form-group">
+              <label for="editPricePerSheet3Plus">Price for 3+ Sheets (₹ each)</label>
+              <input type="number" id="editPricePerSheet3Plus" name="pricePerSheet3Plus" value="${game.price_per_sheet_3_plus}" required min="1">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Game Schedule</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editGameDate">Game Date</label>
+              <input type="date" id="editGameDate" name="gameDate" value="${game.game_date}" required>
+            </div>
+            <div class="form-group">
+              <label for="editGameTime">Game Time</label>
+              <input type="time" id="editGameTime" name="gameTime" value="${game.game_time}" required>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h3>Payment & Meeting</h3>
+          <div class="form-group">
+            <label for="editPaymentQrCodeUrl">Payment QR Code URL</label>
+            <input type="url" id="editPaymentQrCodeUrl" name="paymentQrCodeUrl" value="${game.payment_qr_code_url || ''}" required>
+            <small>Upload your UPI QR code image and paste the URL</small>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-group">
+              <label for="editZoomLink">Meeting Link (Zoom/Google Meet)</label>
+              <input type="url" id="editZoomLink" name="zoomLink" value="${game.zoom_link || ''}" placeholder="https://zoom.us/j/123456789">
+            </div>
+            <div class="form-group">
+              <label for="editZoomPassword">Meeting Password</label>
+              <input type="text" id="editZoomPassword" name="zoomPassword" value="${game.zoom_password || ''}" placeholder="Optional meeting password">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Update Game</button>
+          <button type="button" onclick="closeEditGameModal()" class="btn btn-secondary">Cancel</button>
+        </div>
+      </form>
+    `;
+    
+    // Set minimum date for game editing
+    const editGameDate = document.getElementById('editGameDate');
+    if (editGameDate) {
+      const today = new Date().toISOString().split('T')[0];
+      editGameDate.min = today;
+    }
+    
+    // Setup form submission
+    document.getElementById('editGameForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.updateGame();
+    });
+    
+    modal.style.display = 'block';
+  }
+
+  async updateGame() {
+    try {
+      const formData = new FormData(document.getElementById('editGameForm'));
+      const gameId = formData.get('editGameId') || document.getElementById('editGameId').value;
+      
+      const data = {
+        name: formData.get('gameName'),
+        banner_image_url: formData.get('bannerImageUrl'),
+        total_prize: parseFloat(formData.get('totalPrize')),
+        price_per_sheet_1: parseFloat(formData.get('pricePerSheet1')),
+        price_per_sheet_2: parseFloat(formData.get('pricePerSheet2')),
+        price_per_sheet_3_plus: parseFloat(formData.get('pricePerSheet3Plus')),
+        payment_qr_code_url: formData.get('paymentQrCodeUrl'),
+        zoom_link: formData.get('zoomLink'),
+        zoom_password: formData.get('zoomPassword'),
+        game_date: formData.get('gameDate'),
+        game_time: formData.get('gameTime')
+      };
+
+      const response = await app.apiCall(`/organiser/games/${gameId}`, 'PUT', data);
+      app.showNotification('Game updated successfully', 'success');
+      
+      // Close modal and refresh games list
+      this.closeEditGameModal();
+      await this.loadActiveGames();
+      
+    } catch (error) {
+      app.showNotification(error.message || 'Failed to update game', 'error');
+    }
+  }
+
+  closeEditGameModal() {
+    document.getElementById('editGameModal').style.display = 'none';
+    document.getElementById('editGameContent').innerHTML = '';
   }
 
   async startGame(gameId) {
@@ -872,7 +1018,11 @@ class OrganiserManager {
 
 // Global functions
 function closeEditGameModal() {
-  document.getElementById('editGameModal').style.display = 'none';
+  if (organiserManager) {
+    organiserManager.closeEditGameModal();
+  } else {
+    document.getElementById('editGameModal').style.display = 'none';
+  }
 }
 
 function closeEndGameModal() {

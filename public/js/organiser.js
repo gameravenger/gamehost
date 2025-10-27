@@ -464,6 +464,9 @@ class OrganiserManager {
               <button class="btn btn-success btn-sm" onclick="organiserManager.startGame('${game.id}')">
                 Start Game
               </button>
+              <button class="btn btn-danger btn-sm" onclick="organiserManager.showEndGameModal('${game.id}')">
+                End Game
+              </button>
             ` : ''}
             ${game.status === 'live' ? `
               <button class="btn btn-danger btn-sm" onclick="organiserManager.showEndGameModal('${game.id}')">

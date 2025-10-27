@@ -20,24 +20,43 @@ class GameDetailsManager {
       return imageUrl.replace('.jpg', '.svg');
     }
     
-    // For external URLs, validate them
+    // For external URLs, validate and fix them
     if (imageUrl.startsWith('http')) {
-      // Fix common issues with external URLs
-      if (imageUrl.includes('ibb.co/') && !imageUrl.includes('.jpg') && !imageUrl.includes('.png')) {
-        // ibb.co page URLs are not direct image URLs
+      // Fix ibb.co URLs - convert page URLs to direct image URLs
+      if (imageUrl.includes('ibb.co/')) {
+        // Extract image ID from ibb.co URL
+        const match = imageUrl.match(/ibb\.co\/([a-zA-Z0-9]+)/);
+        if (match) {
+          // Convert to direct image URL
+          return `https://i.ibb.co/${match[1]}.jpg`;
+        }
+        console.warn('Invalid ibb.co URL:', imageUrl);
         return '/images/default-game.svg';
       }
       
+      // Fix Google Drive URLs
       if (imageUrl.includes('drive.google.com/file/')) {
-        // Google Drive view URLs need to be converted to direct links
         const fileId = imageUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
         if (fileId) {
           return `https://drive.google.com/uc?export=view&id=${fileId[1]}`;
         }
+        console.warn('Invalid Google Drive URL:', imageUrl);
         return '/images/default-game.svg';
       }
       
-      return imageUrl; // Return as-is for other external URLs
+      // Fix Google Drive sharing URLs
+      if (imageUrl.includes('drive.google.com') && imageUrl.includes('sharing')) {
+        console.warn('Google Drive sharing URL detected, using fallback:', imageUrl);
+        return '/images/default-game.svg';
+      }
+      
+      // For other external URLs, validate they look like image URLs
+      if (imageUrl.match(/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i)) {
+        return imageUrl; // Valid image URL
+      }
+      
+      console.warn('Invalid image URL format:', imageUrl);
+      return '/images/default-game.svg';
     }
     
     return imageUrl;

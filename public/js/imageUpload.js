@@ -14,7 +14,7 @@ class ImageUploadManager {
     };
   }
 
-  // Create image upload widget
+  // Create image upload widget (no direct upload to save storage)
   createUploadWidget(containerId, onSuccess, onError) {
     const container = document.getElementById(containerId);
     if (!container) return;
@@ -22,48 +22,13 @@ class ImageUploadManager {
     container.innerHTML = `
       <div class="image-upload-widget">
         <div class="upload-tabs">
-          <button class="upload-tab active" data-tab="file">📁 Upload File</button>
-          <button class="upload-tab" data-tab="url">🔗 Image URL</button>
-          <button class="upload-tab" data-tab="drive">📂 Google Drive</button>
-        </div>
-        
-        <!-- File Upload Tab -->
-        <div class="upload-content active" id="file-upload">
-          <div class="file-drop-zone" id="dropZone">
-            <div class="drop-zone-content">
-              <div class="upload-icon">📸</div>
-              <p>Drag & drop your image here</p>
-              <p class="upload-subtext">or click to browse</p>
-              <input type="file" id="fileInput" accept="image/*" style="display: none;">
-              <button type="button" class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
-                Choose Image
-              </button>
-            </div>
-          </div>
-          <div class="upload-progress" id="uploadProgress" style="display: none;">
-            <div class="progress-bar">
-              <div class="progress-fill" id="progressFill"></div>
-            </div>
-            <div class="progress-text" id="progressText">Uploading...</div>
-          </div>
-        </div>
-        
-        <!-- URL Input Tab -->
-        <div class="upload-content" id="url-upload">
-          <div class="url-input-section">
-            <label>Image URL:</label>
-            <input type="url" id="imageUrl" placeholder="https://example.com/image.jpg" class="form-control">
-            <button type="button" class="btn btn-secondary" onclick="imageUploadManager.validateImageUrl()">
-              🔍 Validate URL
-            </button>
-          </div>
-          <div class="url-preview" id="urlPreview" style="display: none;">
-            <img id="previewImage" style="max-width: 200px; max-height: 200px; border-radius: 8px;">
-          </div>
+          <button class="upload-tab active" data-tab="drive">📂 Google Drive</button>
+          <button class="upload-tab" data-tab="ibb">🖼️ ImgBB</button>
+          <button class="upload-tab" data-tab="url">🔗 Direct URL</button>
         </div>
         
         <!-- Google Drive Tab -->
-        <div class="upload-content" id="drive-upload">
+        <div class="upload-content active" id="drive-upload">
           <div class="drive-instructions">
             <h4>📂 How to use Google Drive:</h4>
             <ol>
@@ -88,6 +53,50 @@ class ImageUploadManager {
             </button>
           </div>
         </div>
+        
+        <!-- ImgBB Tab -->
+        <div class="upload-content" id="ibb-upload">
+          <div class="ibb-instructions">
+            <h4>🖼️ How to use ImgBB:</h4>
+            <ol>
+              <li>Go to <a href="https://imgbb.com" target="_blank">imgbb.com</a></li>
+              <li>Upload your image (drag & drop or browse)</li>
+              <li>Copy the <strong>Direct Link</strong> (not the page URL)</li>
+              <li>Paste it below</li>
+            </ol>
+          </div>
+          <div class="ibb-input-section">
+            <label>ImgBB URL:</label>
+            <input type="url" id="ibbUrl" placeholder="https://ibb.co/abc123 or https://i.ibb.co/abc123/image.jpg" class="form-control">
+            <button type="button" class="btn btn-secondary" onclick="imageUploadManager.processIbbUrl()">
+              🔄 Convert Link
+            </button>
+          </div>
+          <div class="ibb-result" id="ibbResult" style="display: none;">
+            <label>Direct Image URL:</label>
+            <input type="url" id="ibbDirectUrl" class="form-control" readonly>
+            <button type="button" class="btn btn-success" onclick="imageUploadManager.useIbbUrl()">
+              ✅ Use This URL
+            </button>
+          </div>
+        </div>
+        
+        <!-- Direct URL Tab -->
+        <div class="upload-content" id="url-upload">
+          <div class="url-input-section">
+            <label>Direct Image URL:</label>
+            <input type="url" id="imageUrl" placeholder="https://example.com/image.jpg" class="form-control">
+            <button type="button" class="btn btn-secondary" onclick="imageUploadManager.validateImageUrl()">
+              🔍 Test & Preview
+            </button>
+          </div>
+          <div class="url-preview" id="urlPreview" style="display: none;">
+            <img id="previewImage" style="max-width: 200px; max-height: 200px; border-radius: 8px;">
+            <button type="button" class="btn btn-success" onclick="imageUploadManager.useDirectUrl()">
+              ✅ Use This URL
+            </button>
+          </div>
+        </div>
       </div>
     `;
 
@@ -95,6 +104,9 @@ class ImageUploadManager {
   }
 
   setupEventListeners(onSuccess, onError) {
+    this.onSuccess = onSuccess;
+    this.onError = onError;
+    
     // Tab switching
     document.querySelectorAll('.upload-tab').forEach(tab => {
       tab.addEventListener('click', (e) => {
@@ -102,36 +114,6 @@ class ImageUploadManager {
         this.switchTab(tabName);
       });
     });
-
-    // File input
-    const fileInput = document.getElementById('fileInput');
-    if (fileInput) {
-      fileInput.addEventListener('change', (e) => {
-        this.handleFileSelect(e.target.files[0], onSuccess, onError);
-      });
-    }
-
-    // Drag and drop
-    const dropZone = document.getElementById('dropZone');
-    if (dropZone) {
-      dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.classList.add('drag-over');
-      });
-
-      dropZone.addEventListener('dragleave', () => {
-        dropZone.classList.remove('drag-over');
-      });
-
-      dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('drag-over');
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-          this.handleFileSelect(files[0], onSuccess, onError);
-        }
-      });
-    }
   }
 
   switchTab(tabName) {
@@ -148,64 +130,6 @@ class ImageUploadManager {
     document.getElementById(`${tabName}-upload`).classList.add('active');
   }
 
-  async handleFileSelect(file, onSuccess, onError) {
-    if (!this.validateFile(file)) {
-      onError('Invalid file. Please select a valid image file under 5MB.');
-      return;
-    }
-
-    try {
-      this.showProgress(true);
-      const imageUrl = await this.uploadToImgBB(file);
-      this.showProgress(false);
-      onSuccess(imageUrl);
-    } catch (error) {
-      this.showProgress(false);
-      onError(`Upload failed: ${error.message}`);
-    }
-  }
-
-  validateFile(file) {
-    if (!file) return false;
-    
-    // Check file type
-    const fileExtension = file.name.split('.').pop().toLowerCase();
-    if (!this.supportedFormats.includes(fileExtension)) {
-      return false;
-    }
-
-    // Check file size
-    if (file.size > this.maxFileSize) {
-      return false;
-    }
-
-    return true;
-  }
-
-  async uploadToImgBB(file) {
-    const formData = new FormData();
-    formData.append('image', file);
-
-    // Note: In production, the API key should come from your backend
-    // For demo purposes, users can get a free key from https://api.imgbb.com/
-    const apiKey = 'YOUR_IMGBB_API_KEY'; // This should be configured in admin panel
-    
-    const response = await fetch(`https://api.imgbb.com/1/upload?key=${apiKey}`, {
-      method: 'POST',
-      body: formData
-    });
-
-    if (!response.ok) {
-      throw new Error('Upload service unavailable');
-    }
-
-    const result = await response.json();
-    if (result.success) {
-      return result.data.url;
-    } else {
-      throw new Error(result.error?.message || 'Upload failed');
-    }
-  }
 
   async validateImageUrl() {
     const urlInput = document.getElementById('imageUrl');
@@ -265,10 +189,99 @@ class ImageUploadManager {
 
   useDriveUrl() {
     const directUrl = document.getElementById('driveDirectUrl').value;
-    // Copy to clipboard
-    navigator.clipboard.writeText(directUrl).then(() => {
-      app.showNotification('✅ Direct URL copied to clipboard!', 'success');
-    });
+    if (this.onSuccess) {
+      this.onSuccess(directUrl);
+    }
+  }
+
+  processIbbUrl() {
+    const ibbInput = document.getElementById('ibbUrl');
+    const result = document.getElementById('ibbResult');
+    const directUrlInput = document.getElementById('ibbDirectUrl');
+    
+    const ibbUrl = ibbInput.value.trim();
+    if (!ibbUrl) {
+      app.showNotification('Please enter an ImgBB link', 'warning');
+      return;
+    }
+
+    let directUrl = null;
+
+    // If it's already a direct URL, use it
+    if (ibbUrl.includes('i.ibb.co/') && (ibbUrl.includes('.jpg') || ibbUrl.includes('.png') || ibbUrl.includes('.gif'))) {
+      directUrl = ibbUrl;
+    }
+    // If it's a page URL, try to convert it
+    else if (ibbUrl.includes('ibb.co/')) {
+      const match = ibbUrl.match(/ibb\.co\/([a-zA-Z0-9]+)/);
+      if (match) {
+        const id = match[1];
+        // We'll test multiple possible formats
+        this.testIbbUrls(id, directUrlInput, result);
+        return;
+      }
+    }
+
+    if (directUrl) {
+      directUrlInput.value = directUrl;
+      result.style.display = 'block';
+      app.showNotification('✅ ImgBB URL ready to use!', 'success');
+    } else {
+      app.showNotification('❌ Invalid ImgBB URL format', 'error');
+    }
+  }
+
+  async testIbbUrls(id, directUrlInput, result) {
+    const possibleUrls = [
+      `https://i.ibb.co/${id}.jpg`,
+      `https://i.ibb.co/${id}.png`,
+      `https://i.ibb.co/${id}.gif`,
+      `https://i.ibb.co/${id}/image.jpg`,
+      `https://i.ibb.co/${id}/image.png`
+    ];
+
+    app.showNotification('🔍 Testing ImgBB URL formats...', 'info');
+
+    for (const url of possibleUrls) {
+      try {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        
+        const isValid = await new Promise((resolve) => {
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+          img.src = url;
+          
+          // Timeout after 3 seconds
+          setTimeout(() => resolve(false), 3000);
+        });
+
+        if (isValid) {
+          directUrlInput.value = url;
+          result.style.display = 'block';
+          app.showNotification('✅ Found working ImgBB URL!', 'success');
+          return;
+        }
+      } catch (error) {
+        continue;
+      }
+    }
+
+    app.showNotification('❌ Could not find a working ImgBB direct URL. Try copying the direct link from ImgBB.', 'error');
+  }
+
+  useIbbUrl() {
+    const directUrl = document.getElementById('ibbDirectUrl').value;
+    if (this.onSuccess) {
+      this.onSuccess(directUrl);
+    }
+  }
+
+  useDirectUrl() {
+    const directUrl = document.getElementById('imageUrl').value;
+    if (this.onSuccess) {
+      this.onSuccess(directUrl);
+    }
   }
 
   showProgress(show) {

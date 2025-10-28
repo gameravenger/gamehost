@@ -149,34 +149,68 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
       console.log(`📁 GAME CREATION: Traditional game creation (no auto-scan)`);
     }
 
-    // Create game with auto-scanned individual sheet files
-    const { data: game, error } = await supabaseAdmin
+    // Create game data object
+    const gameData = {
+      organiser_id: organiser.id,
+      name,
+      banner_image_url: bannerImageUrl,
+      total_prize: totalPrize,
+      price_per_sheet_1: pricePerSheet1,
+      price_per_sheet_2: pricePerSheet2,
+      price_per_sheet_3_plus: pricePerSheet3Plus,
+      payment_qr_code_url: paymentQrCodeUrl,
+      zoom_link: zoomLink,
+      zoom_password: zoomPassword,
+      game_date: gameDate,
+      game_time: gameTime,
+      sheets_folder_id: sheetsFolderId,
+      sheets_folder_url: sheetsFolder, // Store original URL for reference
+      sheet_file_format: finalFileFormat,
+      total_sheets: totalSheets,
+      status: 'upcoming'
+    };
+
+    // Add individual_sheet_files if provided (and column exists)
+    if (individualSheetFiles && Object.keys(individualSheetFiles).length > 0) {
+      gameData.individual_sheet_files = individualSheetFiles;
+    }
+
+    // Try to create game with individual_sheet_files
+    let { data: game, error } = await supabaseAdmin
       .from('games')
-      .insert([{
-        organiser_id: organiser.id,
-        name,
-        banner_image_url: bannerImageUrl,
-        total_prize: totalPrize,
-        price_per_sheet_1: pricePerSheet1,
-        price_per_sheet_2: pricePerSheet2,
-        price_per_sheet_3_plus: pricePerSheet3Plus,
-        payment_qr_code_url: paymentQrCodeUrl,
-        zoom_link: zoomLink,
-        zoom_password: zoomPassword,
-        game_date: gameDate,
-        game_time: gameTime,
-        sheets_folder_id: sheetsFolderId,
-        sheets_folder_url: sheetsFolder, // Store original URL for reference
-        sheet_file_format: finalFileFormat,
-        total_sheets: totalSheets,
-        individual_sheet_files: individualSheetFiles || {}, // Auto-scanned individual file IDs
-        status: 'upcoming'
-      }])
+      .insert([gameData])
       .select()
       .single();
 
+    // If error is about missing column, create without it for now
+    if (error && error.message.includes('individual_sheet_files')) {
+      console.log('⚠️ MIGRATION: individual_sheet_files column missing, creating game without it...');
+      console.log('💡 SOLUTION: Please run the database migration: POST /api/organiser/migrate-database');
+      
+      // Remove the problematic field and try again
+      const { individual_sheet_files, ...gameDataWithoutFiles } = gameData;
+      
+      const retryResult = await supabaseAdmin
+        .from('games')
+        .insert([gameDataWithoutFiles])
+        .select()
+        .single();
+      
+      game = retryResult.data;
+      error = retryResult.error;
+      
+      if (!error && individual_sheet_files && Object.keys(individual_sheet_files).length > 0) {
+        console.log('⚠️ WARNING: Game created without individual_sheet_files. Run migration to enable secure downloads.');
+      }
+    }
+
     if (error) {
-      return res.status(400).json({ error: error.message });
+      console.error('❌ GAME CREATION ERROR:', error);
+      return res.status(400).json({ 
+        error: error.message,
+        details: 'Failed to create game. Please try again or contact support.',
+        migrationNeeded: error.message.includes('individual_sheet_files')
+      });
     }
 
     res.status(201).json({ message: 'Game created successfully', game });
@@ -468,6 +502,54 @@ router.post('/games/:id/auto-scan-sheets', authenticateOrganiser, async (req, re
     res.status(500).json({ 
       error: 'Auto-scan failed',
       details: error.message 
+    });
+  }
+});
+
+// MIGRATION STATUS - Check if database migration is needed
+router.get('/migration-status', authenticateOrganiser, async (req, res) => {
+  try {
+    console.log('🔍 MIGRATION CHECK: Checking if migration is needed...');
+    
+    // Try to select the individual_sheet_files column to see if it exists
+    const { data, error } = await supabaseAdmin
+      .from('games')
+      .select('individual_sheet_files')
+      .limit(1);
+
+    if (error && error.message.includes('individual_sheet_files')) {
+      // Column doesn't exist
+      res.json({
+        migrationNeeded: true,
+        message: 'Database migration required',
+        missingColumns: ['individual_sheet_files'],
+        instructions: {
+          step1: 'Go to your Supabase dashboard',
+          step2: 'Navigate to SQL Editor',
+          step3: 'Run the migration script from scripts/add-individual-sheet-files.sql',
+          step4: 'Refresh this page to verify'
+        }
+      });
+    } else if (error) {
+      // Other error
+      res.status(500).json({
+        error: 'Failed to check migration status',
+        details: error.message
+      });
+    } else {
+      // Column exists
+      res.json({
+        migrationNeeded: false,
+        message: 'Database is up to date',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+  } catch (error) {
+    console.error('💥 MIGRATION CHECK ERROR:', error);
+    res.status(500).json({
+      error: 'Migration check failed',
+      details: error.message
     });
   }
 });

@@ -193,6 +193,16 @@ class AdminManager {
       case 'games':
         await this.loadGames();
         break;
+      case 'featured':
+        await this.loadFeaturedGames();
+        await this.loadTopGames();
+        break;
+      case 'ads':
+        await this.loadSponsoredAds();
+        break;
+      case 'news':
+        await this.loadNews();
+        break;
       case 'settings':
         await this.loadSettings();
         break;

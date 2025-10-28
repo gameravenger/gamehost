@@ -446,33 +446,35 @@
 }
 
 .sheet-number.sold {
-  background: #e0e0e0;
-  border-color: #bbb;
-  color: #999;
-  cursor: not-allowed;
+  background: #e0e0e0 !important;
+  border-color: #bbb !important;
+  color: #999 !important;
+  cursor: not-allowed !important;
   position: relative;
   opacity: 0.6;
+  pointer-events: none;
 }
 
 .sheet-number.sold:hover {
-  background: #e0e0e0;
-  border-color: #bbb;
-  transform: none;
+  background: #e0e0e0 !important;
+  border-color: #bbb !important;
+  transform: none !important;
 }
 
 .sheet-number.reserved {
-  background: #fff3cd;
-  border-color: #ffeaa7;
-  color: #856404;
-  cursor: not-allowed;
+  background: #fff3cd !important;
+  border-color: #ffeaa7 !important;
+  color: #856404 !important;
+  cursor: not-allowed !important;
   position: relative;
   opacity: 0.8;
+  pointer-events: none;
 }
 
 .sheet-number.reserved:hover {
-  background: #fff3cd;
-  border-color: #ffeaa7;
-  transform: none;
+  background: #fff3cd !important;
+  border-color: #ffeaa7 !important;
+  transform: none !important;
 }
 
 .sold-indicator {

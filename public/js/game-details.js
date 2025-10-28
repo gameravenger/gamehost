@@ -275,20 +275,28 @@ class GameDetailsManager {
 
   async loadSoldSheets() {
     try {
+      console.log(`🔍 LOADING SOLD SHEETS for game ${this.gameId}`);
       const response = await app.apiCall(`/games/${this.gameId}/sold-sheets`);
+      
+      console.log(`📊 SOLD SHEETS API RESPONSE:`, response);
+      
       this.soldSheets = response.soldSheets || [];
       this.approvedSheets = response.approvedSheets || [];
       this.reservedSheets = response.reservedSheets || [];
-      console.log('Sheet status loaded:', {
+      
+      console.log('✅ Sheet status loaded:', {
         total: this.soldSheets.length,
         approved: this.approvedSheets.length,
-        reserved: this.reservedSheets.length
+        reserved: this.reservedSheets.length,
+        soldSheetNumbers: this.soldSheets,
+        approvedSheetNumbers: this.approvedSheets,
+        reservedSheetNumbers: this.reservedSheets
       });
       
       // Now generate the sheet grid with the sold sheets data
       this.generateSheetGrid();
     } catch (error) {
-      console.error('Error loading sold sheets:', error);
+      console.error('❌ Error loading sold sheets:', error);
       this.soldSheets = [];
       this.approvedSheets = [];
       this.reservedSheets = [];
@@ -342,6 +350,19 @@ class GameDetailsManager {
         statusClass = 'reserved';
         statusIndicator = '<span class="reserved-indicator">RESERVED</span>';
         clickHandler = '';
+      }
+      
+      // Debug logging for first few sheets
+      if (num <= 5) {
+        console.log(`🎯 Sheet ${num} status:`, {
+          isUnavailable,
+          isApproved,
+          isReserved,
+          statusClass,
+          soldSheets: this.soldSheets?.slice(0, 10),
+          approvedSheets: this.approvedSheets?.slice(0, 10),
+          reservedSheets: this.reservedSheets?.slice(0, 10)
+        });
       }
       
       return `

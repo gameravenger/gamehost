@@ -342,8 +342,11 @@ class OrganiserManager {
 
   async loadPendingVerifications() {
     try {
+      console.log('🔍 ORGANISER DEBUG: Loading pending verifications...');
       const response = await app.apiCall('/organiser/games');
       const allGames = response.games || [];
+      
+      console.log(`📊 ORGANISER DEBUG: Found ${allGames.length} games`);
       
       // Get participants for all games
       let allPendingParticipants = [];
@@ -351,8 +354,12 @@ class OrganiserManager {
       
       for (const game of allGames.slice(0, 5)) { // Show more games
         try {
+          console.log(`🎮 ORGANISER DEBUG: Loading participants for game ${game.id} (${game.name})`);
           const participantsResponse = await app.apiCall(`/organiser/games/${game.id}/participants`);
-          const pending = participantsResponse.participants?.filter(p => p.payment_status === 'pending') || [];
+          const allParticipants = participantsResponse.participants || [];
+          const pending = allParticipants.filter(p => p.payment_status === 'pending');
+          
+          console.log(`👥 ORGANISER DEBUG: Game ${game.name} - ${allParticipants.length} total participants, ${pending.length} pending`);
           
           // Add game info to each participant
           pending.forEach(participant => {
@@ -362,9 +369,11 @@ class OrganiserManager {
           
           allPendingParticipants.push(...pending);
         } catch (error) {
-          console.error('Error loading participants for game:', game.id);
+          console.error('❌ Error loading participants for game:', game.id, error);
         }
       }
+      
+      console.log(`✅ ORGANISER DEBUG: Total pending participants: ${allPendingParticipants.length}`);
 
       if (widget) {
         if (allPendingParticipants.length === 0) {

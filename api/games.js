@@ -405,6 +405,8 @@ router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
     const userId = req.user.userId;
 
     // Get ALL approved participations for this user and game
+    console.log(`🔍 DOWNLOAD DEBUG: Checking participations for user ${userId}, game ${gameId}`);
+    
     const { data: participations, error } = await supabaseAdmin
       .from('game_participants')
       .select('*')
@@ -412,8 +414,35 @@ router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
       .eq('user_id', userId)
       .eq('payment_status', 'approved');
 
-    if (error || !participations || participations.length === 0) {
-      return res.status(403).json({ error: 'You are not approved for this game or not registered' });
+    console.log(`📊 DOWNLOAD DEBUG: Found ${participations?.length || 0} approved participations`);
+    console.log(`❌ DOWNLOAD DEBUG: Error:`, error);
+    
+    if (error) {
+      console.log(`💥 DOWNLOAD ERROR: Database error:`, error.message);
+      return res.status(500).json({ error: `Database error: ${error.message}` });
+    }
+    
+    if (!participations || participations.length === 0) {
+      console.log(`🚫 DOWNLOAD DENIED: No approved participations found for user ${userId}, game ${gameId}`);
+      
+      // Let's also check what participations exist for debugging
+      const { data: allParticipations } = await supabaseAdmin
+        .from('game_participants')
+        .select('payment_status, created_at')
+        .eq('game_id', gameId)
+        .eq('user_id', userId);
+        
+      console.log(`📋 DOWNLOAD DEBUG: All user participations:`, allParticipations);
+      
+      return res.status(403).json({ 
+        error: 'You are not approved for this game or not registered',
+        debug: {
+          userId,
+          gameId,
+          foundParticipations: allParticipations?.length || 0,
+          participationStatuses: allParticipations?.map(p => p.payment_status) || []
+        }
+      });
     }
 
     // Get game details with sheets folder

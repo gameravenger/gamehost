@@ -86,11 +86,23 @@ class DashboardManager {
 
   async loadParticipations() {
     try {
+      console.log('📊 DASHBOARD: Loading participations...');
       const response = await app.apiCall('/games/user/participations');
       this.participations = response.participations || [];
+      
+      console.log('✅ DASHBOARD: Participations loaded:', {
+        count: this.participations.length,
+        sample: this.participations.slice(0, 2).map(p => ({
+          id: p.id,
+          gameId: p.games?.id,
+          gameName: p.games?.name,
+          status: p.payment_status
+        }))
+      });
+      
       this.renderParticipations();
     } catch (error) {
-      console.error('Error loading participations:', error);
+      console.error('❌ Error loading participations:', error);
     }
   }
 
@@ -188,8 +200,22 @@ class DashboardManager {
   createParticipationCard(participation) {
     const game = participation.games;
     
+    // Debug game object structure
+    console.log('🎮 DASHBOARD DEBUG: Game object for participation:', {
+      participationId: participation.id,
+      gameObject: game,
+      gameId: game?.id,
+      gameName: game?.name
+    });
+    
+    // Ensure game ID exists
+    if (!game || !game.id) {
+      console.error('❌ DASHBOARD ERROR: Game ID missing from participation:', participation);
+      return `<div class="participation-card error">Error: Game data missing</div>`;
+    }
+    
     // Check if user has multiple participations for this game
-    const gameParticipations = this.participations.filter(p => p.games.id === game.id);
+    const gameParticipations = this.participations.filter(p => p.games?.id === game.id);
     const hasMultipleParticipations = gameParticipations.length > 1;
     
     // Check if ANY participation for this game is approved and not downloaded

@@ -123,11 +123,50 @@ class OrganiserManager {
       this.endGame();
     });
 
-    // Set minimum date for game creation
+    // Set minimum date for game creation and ensure Chrome compatibility
     const gameDate = document.getElementById('gameDate');
+    const gameTime = document.getElementById('gameTime');
+    
     if (gameDate) {
       const today = new Date().toISOString().split('T')[0];
+      const maxDate = new Date();
+      maxDate.setFullYear(maxDate.getFullYear() + 1);
+      const maxDateStr = maxDate.toISOString().split('T')[0];
+      
       gameDate.min = today;
+      gameDate.max = maxDateStr;
+      
+      // Force Chrome to recognize the input properly
+      gameDate.setAttribute('type', 'date');
+      gameDate.style.colorScheme = 'light dark';
+      gameDate.style.fontSize = '16px'; // Prevents zoom on iOS
+      
+      // Add click handler for Chrome compatibility
+      gameDate.addEventListener('click', function() {
+        this.showPicker && this.showPicker();
+      });
+      
+      console.log('📅 DATE PICKER: Initialized for Chrome compatibility');
+    }
+    
+    if (gameTime) {
+      // Force Chrome to recognize the time input properly
+      gameTime.setAttribute('type', 'time');
+      gameTime.style.colorScheme = 'light dark';
+      gameTime.style.fontSize = '16px'; // Prevents zoom on iOS
+      
+      // Add click handler for Chrome compatibility
+      gameTime.addEventListener('click', function() {
+        this.showPicker && this.showPicker();
+      });
+      
+      // Set default time to current time + 1 hour
+      const now = new Date();
+      now.setHours(now.getHours() + 1);
+      const defaultTime = now.toTimeString().slice(0, 5);
+      gameTime.value = defaultTime;
+      
+      console.log('🕐 TIME PICKER: Initialized for Chrome compatibility');
     }
 
     // Google Drive folder validation
@@ -462,6 +501,23 @@ class OrganiserManager {
         sheetsFolderId = sheetsFolder;
       }
 
+      // Get auto-scanned sheets data
+      const autoScannedSheets = formData.get('autoScannedSheets');
+      let individualSheetFiles = {};
+      
+      if (autoScannedSheets) {
+        try {
+          const scannedData = JSON.parse(autoScannedSheets);
+          // Convert scanned data to individual_sheet_files format
+          Object.entries(scannedData).forEach(([sheetNumber, fileInfo]) => {
+            individualSheetFiles[sheetNumber] = fileInfo.fileId;
+          });
+          console.log(`🔍 GAME CREATION: Using auto-scanned data for ${Object.keys(individualSheetFiles).length} sheets`);
+        } catch (error) {
+          console.error('❌ Error parsing auto-scanned data:', error);
+        }
+      }
+
       const data = {
         name: formData.get('gameName'),
         bannerImageUrl: formData.get('bannerImageUrl'),
@@ -477,7 +533,9 @@ class OrganiserManager {
         sheetsFolder: sheetsFolderId,
         totalSheets: parseInt(formData.get('totalSheets')),
         sheetFileFormat: formData.get('sheetFileFormat'),
-        customFormat: formData.get('customFormat')
+        customFormat: formData.get('customFormat'),
+        individualSheetFiles: individualSheetFiles, // Auto-scanned individual file IDs
+        autoScanned: Object.keys(individualSheetFiles).length > 0
       };
 
       const response = await app.apiCall('/organiser/games', 'POST', data);
@@ -487,6 +545,7 @@ class OrganiserManager {
       document.getElementById('createGameForm').reset();
       document.getElementById('sheetsPreview').style.display = 'none';
       document.getElementById('folderValidation').style.display = 'none';
+      document.getElementById('autoScanSection').style.display = 'none';
       this.switchSection('active-games');
       
     } catch (error) {
@@ -1087,34 +1146,176 @@ class OrganiserManager {
     app.showNotification(`${type} data export coming soon`, 'info');
   }
 
-  // Google Drive folder validation
+  // AUTO-SCAN Google Drive folder for individual sheets
   async validateGoogleDriveFolder(folderUrl) {
     const validation = document.getElementById('folderValidation');
     const statusSpan = validation.querySelector('.validation-status');
+    const autoScanSection = document.getElementById('autoScanSection');
+    const scanStatus = document.getElementById('scanStatus');
     
     if (!folderUrl) {
       validation.style.display = 'none';
+      autoScanSection.style.display = 'none';
       return;
     }
 
+    // Show validation status
     validation.style.display = 'block';
     validation.className = 'folder-validation loading';
     statusSpan.textContent = '🔄 Validating folder...';
 
     try {
+      // First validate folder access
       const response = await app.apiCall('/organiser/validate-folder', 'POST', {
         folderUrl: folderUrl
       });
 
       validation.className = 'folder-validation success';
-      statusSpan.textContent = '✅ Folder is accessible and valid';
+      statusSpan.textContent = '✅ Folder is accessible - Starting auto-scan...';
       
-      this.updateSheetsPreview();
+      // Show auto-scan section and start scanning
+      autoScanSection.style.display = 'block';
+      this.startAutoScan(folderUrl);
       
     } catch (error) {
       validation.className = 'folder-validation error';
       statusSpan.textContent = `❌ ${error.message}`;
+      autoScanSection.style.display = 'none';
     }
+  }
+
+  // AUTO-SCAN the Google Drive folder for individual sheet files
+  async startAutoScan(folderUrl) {
+    const scanStatus = document.getElementById('scanStatus');
+    const loadingDiv = scanStatus.querySelector('.scan-loading');
+    const successDiv = scanStatus.querySelector('.scan-success');
+    const errorDiv = scanStatus.querySelector('.scan-error');
+    
+    // Show loading state
+    loadingDiv.style.display = 'flex';
+    successDiv.style.display = 'none';
+    errorDiv.style.display = 'none';
+
+    try {
+      console.log(`🔍 AUTO-SCAN: Starting scan for folder: ${folderUrl}`);
+      
+      // Extract folder ID from URL
+      const folderId = this.extractFolderIdFromUrl(folderUrl);
+      if (!folderId) {
+        throw new Error('Invalid Google Drive folder URL');
+      }
+
+      // Call the auto-scan API (we'll create a temporary game to scan)
+      const scanResponse = await app.apiCall('/organiser/scan-folder-preview', 'POST', {
+        folderId: folderId
+      });
+
+      if (scanResponse.success && scanResponse.sheetFiles) {
+        // Show success state
+        loadingDiv.style.display = 'none';
+        successDiv.style.display = 'flex';
+        
+        const totalSheets = Object.keys(scanResponse.sheetFiles).length;
+        successDiv.querySelector('.scan-results').textContent = 
+          `Found ${totalSheets} sheets in folder`;
+
+        // Auto-populate the form with scanned data
+        document.getElementById('totalSheets').value = totalSheets;
+        document.getElementById('autoScannedSheets').value = JSON.stringify(scanResponse.sheetFiles);
+        
+        // Detect file format from scanned files
+        const firstFile = Object.values(scanResponse.sheetFiles)[0];
+        if (firstFile && firstFile.fileName) {
+          const detectedFormat = this.detectFileFormat(firstFile.fileName);
+          document.getElementById('sheetFileFormat').value = detectedFormat;
+        }
+        
+        // Show preview of scanned sheets
+        this.showScannedSheetsPreview(scanResponse.sheetFiles);
+        
+        app.showNotification(`✅ Auto-scan complete: Found ${totalSheets} sheets`, 'success');
+        
+      } else {
+        throw new Error(scanResponse.error || 'Auto-scan failed');
+      }
+      
+    } catch (error) {
+      console.error('💥 AUTO-SCAN ERROR:', error);
+      
+      // Show error state
+      loadingDiv.style.display = 'none';
+      errorDiv.style.display = 'flex';
+      errorDiv.querySelector('.error-message').textContent = error.message;
+      
+      app.showNotification(`❌ Auto-scan failed: ${error.message}`, 'error');
+    }
+  }
+
+  // Extract folder ID from Google Drive URL
+  extractFolderIdFromUrl(url) {
+    if (!url) return null;
+    
+    const patterns = [
+      /\/folders\/([a-zA-Z0-9-_]+)/,  // Standard folder URL
+      /id=([a-zA-Z0-9-_]+)/,          // Alternative format
+      /^([a-zA-Z0-9-_]+)$/            // Direct folder ID
+    ];
+    
+    for (const pattern of patterns) {
+      const match = url.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+    
+    return null;
+  }
+
+  // Detect file format from filename
+  detectFileFormat(fileName) {
+    if (fileName.match(/^Sheet_\d+\.pdf$/i)) {
+      return 'Sheet_{number}.pdf';
+    } else if (fileName.match(/^\d+\.pdf$/)) {
+      return '{number}.pdf';
+    } else if (fileName.match(/^sheet_\d+\.pdf$/i)) {
+      return 'sheet_{number}.pdf';
+    } else {
+      return 'custom';
+    }
+  }
+
+  // Show preview of scanned sheets
+  showScannedSheetsPreview(sheetFiles) {
+    const preview = document.getElementById('sheetsPreview');
+    const samples = document.getElementById('previewSamples');
+    const summary = document.getElementById('scanSummary');
+    
+    preview.style.display = 'block';
+    
+    // Show sample of detected sheets
+    const sheetNumbers = Object.keys(sheetFiles).map(Number).sort((a, b) => a - b);
+    const sampleNumbers = sheetNumbers.slice(0, 10); // Show first 10
+    
+    samples.innerHTML = sampleNumbers.map(num => {
+      const fileInfo = sheetFiles[num];
+      return `
+        <div class="preview-sample available">
+          <span class="sheet-number">Sheet ${num}</span>
+          <span class="file-name">${fileInfo.fileName}</span>
+        </div>
+      `;
+    }).join('');
+    
+    // Show summary
+    summary.innerHTML = `
+      <div class="scan-summary-info">
+        <strong>✅ Auto-Scan Results:</strong><br>
+        📊 Total sheets detected: ${sheetNumbers.length}<br>
+        📋 Sheet range: ${Math.min(...sheetNumbers)} - ${Math.max(...sheetNumbers)}<br>
+        🔐 Individual file access configured: YES<br>
+        💰 Business protection: ACTIVE
+      </div>
+    `;
   }
 
   // Update sheets preview based on format and count

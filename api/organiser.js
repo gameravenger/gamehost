@@ -108,7 +108,9 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
       sheetsFolder,
       totalSheets,
       sheetFileFormat,
-      customFormat
+      customFormat,
+      individualSheetFiles,
+      autoScanned
     } = req.body;
 
     // Extract and validate Google Drive folder ID
@@ -140,7 +142,14 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
       finalFileFormat = customFormat;
     }
 
-    // Create game
+    // Log auto-scan status
+    if (autoScanned && individualSheetFiles && Object.keys(individualSheetFiles).length > 0) {
+      console.log(`🔍 GAME CREATION: Auto-scanned game with ${Object.keys(individualSheetFiles).length} individual files`);
+    } else {
+      console.log(`📁 GAME CREATION: Traditional game creation (no auto-scan)`);
+    }
+
+    // Create game with auto-scanned individual sheet files
     const { data: game, error } = await supabaseAdmin
       .from('games')
       .insert([{
@@ -160,6 +169,7 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
         sheets_folder_url: sheetsFolder, // Store original URL for reference
         sheet_file_format: finalFileFormat,
         total_sheets: totalSheets,
+        individual_sheet_files: individualSheetFiles || {}, // Auto-scanned individual file IDs
         status: 'upcoming'
       }])
       .select()
@@ -457,6 +467,59 @@ router.post('/games/:id/auto-scan-sheets', authenticateOrganiser, async (req, re
     console.error('💥 Error in auto-scan:', error);
     res.status(500).json({ 
       error: 'Auto-scan failed',
+      details: error.message 
+    });
+  }
+});
+
+// PREVIEW SCAN - Scan Google Drive folder without creating game
+router.post('/scan-folder-preview', authenticateOrganiser, async (req, res) => {
+  try {
+    const { folderId } = req.body;
+
+    console.log(`🔍 PREVIEW SCAN: Scanning folder ${folderId} for preview`);
+
+    if (!folderId) {
+      return res.status(400).json({ 
+        error: 'Folder ID is required',
+        message: 'Please provide a valid Google Drive folder ID'
+      });
+    }
+
+    // Import Google Drive manager
+    const googleDrive = require('../config/google-drive');
+    
+    // Scan the folder for individual sheet files
+    const scanResult = await googleDrive.scanFolderForSheets(folderId);
+
+    if (!scanResult.success) {
+      return res.status(500).json({
+        error: 'Failed to scan Google Drive folder',
+        details: scanResult.error || 'Unknown scanning error'
+      });
+    }
+
+    console.log(`✅ PREVIEW SCAN: Found ${Object.keys(scanResult.sheetFiles).length} sheets`);
+
+    res.json({
+      success: true,
+      message: 'Folder scanned successfully',
+      scanResult: {
+        totalFilesFound: scanResult.totalFiles,
+        sheetsDetected: Object.keys(scanResult.sheetFiles).length,
+        scannedAt: scanResult.scannedAt,
+        placeholder: scanResult.placeholder || false
+      },
+      sheetFiles: scanResult.sheetFiles,
+      folderId: folderId,
+      autoScanEnabled: true,
+      businessProtection: 'Individual file access configured - no folder exposure'
+    });
+
+  } catch (error) {
+    console.error('💥 Error in preview scan:', error);
+    res.status(500).json({ 
+      error: 'Preview scan failed',
       details: error.message 
     });
   }

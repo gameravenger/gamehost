@@ -94,6 +94,9 @@ class ImageUploadManager {
         <div class="common-issues">
           <h4>❓ Common Issues & Solutions:</h4>
           <div class="issue-item">
+            <strong>Image test fails:</strong> This is often due to Google Drive CORS restrictions. The URL will still work in your game even if the test fails.
+          </div>
+          <div class="issue-item">
             <strong>Image not loading:</strong> Make sure permissions are set to "Anyone with the link can view"
           </div>
           <div class="issue-item">
@@ -101,6 +104,9 @@ class ImageUploadManager {
           </div>
           <div class="issue-item">
             <strong>Wrong URL format:</strong> Use the sharing URL from Google Drive, not the direct file URL
+          </div>
+          <div class="issue-item">
+            <strong>Manual verification:</strong> If test fails, click the manual check link to verify the image opens in Google Drive
           </div>
         </div>
       </div>
@@ -148,12 +154,20 @@ class ImageUploadManager {
       return;
     }
 
-    // Convert to direct image URL
-    const directUrl = `https://drive.google.com/uc?export=view&id=${fileId[1]}`;
+    // Convert to direct image URL - try multiple formats for better compatibility
+    const extractedId = fileId[1];
+    const directUrl = `https://drive.google.com/uc?export=view&id=${extractedId}`;
+    
+    // Also provide alternative formats in case the primary one doesn't work
+    const alternativeUrl = `https://drive.google.com/thumbnail?id=${extractedId}&sz=w1000`;
+    
     directUrlInput.value = directUrl;
+    directUrlInput.setAttribute('data-alternative', alternativeUrl);
+    directUrlInput.setAttribute('data-file-id', extractedId);
+    
     result.style.display = 'block';
     
-    app.showNotification('✅ Google Drive link converted! Click "Test Image" to verify.', 'success');
+    app.showNotification('✅ Google Drive link converted! Click "Test Image" to verify. If test fails, the URL should still work in your game.', 'success');
   }
 
   useDriveUrl(containerId) {
@@ -199,19 +213,54 @@ class ImageUploadManager {
     app.showNotification('🔍 Testing Google Drive image...', 'info');
     
     try {
+      // Set up a timeout to handle cases where the image never loads or fails
+      let imageLoaded = false;
+      let imageErrored = false;
+      
+      const timeout = setTimeout(() => {
+        if (!imageLoaded && !imageErrored) {
+          preview.style.display = 'none';
+          app.showNotification('⚠️ Image test timed out. This might be due to Google Drive restrictions, but the URL should still work in your game. Try opening the URL in a new tab to verify manually.', 'warning');
+        }
+      }, 10000); // 10 second timeout
+      
       previewImg.onload = () => {
+        imageLoaded = true;
+        clearTimeout(timeout);
         preview.style.display = 'block';
         app.showNotification('✅ Image loads successfully! You can use this URL.', 'success');
       };
       
       previewImg.onerror = () => {
+        // Try alternative URL format before giving up
+        const alternativeUrl = directUrlInput.getAttribute('data-alternative');
+        const fileId = directUrlInput.getAttribute('data-file-id');
+        
+        if (alternativeUrl && previewImg.src !== alternativeUrl) {
+          console.log('Primary URL failed, trying alternative format...');
+          previewImg.src = alternativeUrl;
+          return; // Don't show error yet, wait for alternative to load/fail
+        }
+        
+        imageErrored = true;
+        clearTimeout(timeout);
         preview.style.display = 'none';
-        app.showNotification('❌ Image failed to load. Please check:\n1. File permissions are set to "Anyone with the link can view"\n2. Wait 2-3 minutes after changing permissions\n3. Make sure the file is an image (JPG/PNG)', 'error');
+        
+        // Provide more helpful error message with manual verification option
+        const manualUrl = fileId ? `https://drive.google.com/file/d/${fileId}/view` : directUrl;
+        
+        app.showNotification(`❌ Image preview failed. This could be due to:\n1. File permissions not set to "Anyone with the link can view"\n2. Google Drive CORS restrictions\n3. File is not an image format\n\n🔗 Manual check: <a href="${manualUrl}" target="_blank">Click here to verify the image opens in Google Drive</a>\n\n✅ Note: The URL should still work in your game even if preview fails.`, 'warning');
       };
       
-      previewImg.src = directUrl;
+      // Clear any previous src to ensure fresh load
+      previewImg.src = '';
+      // Small delay to ensure the src is cleared
+      setTimeout(() => {
+        previewImg.src = directUrl;
+      }, 100);
       
     } catch (error) {
+      console.error('Image test error:', error);
       app.showNotification('❌ Error testing image URL', 'error');
     }
   }
@@ -238,7 +287,7 @@ class ImageUploadManager {
       }
       
       // Handle Google Drive direct URLs (already converted)
-      if (imageUrl.includes('drive.google.com/uc?export=view')) {
+      if (imageUrl.includes('drive.google.com/uc?export=view') || imageUrl.includes('drive.google.com/thumbnail')) {
         return imageUrl; // Already in correct format
       }
       
@@ -253,6 +302,31 @@ class ImageUploadManager {
     }
     
     return imageUrl;
+  }
+
+  // Helper method to create fallback image handling for Google Drive images
+  setupImageFallback(imgElement, imageUrl) {
+    if (!imgElement || !imageUrl) return;
+    
+    // If it's a Google Drive URL, set up fallback handling
+    if (imageUrl.includes('drive.google.com')) {
+      const fileId = imageUrl.match(/id=([a-zA-Z0-9-_]+)/);
+      if (fileId) {
+        const alternativeUrl = `https://drive.google.com/thumbnail?id=${fileId[1]}&sz=w1000`;
+        
+        imgElement.onerror = function() {
+          // Try alternative format
+          if (this.src !== alternativeUrl) {
+            console.log('Trying alternative Google Drive URL format...');
+            this.src = alternativeUrl;
+          } else {
+            // Both formats failed, use default
+            console.warn('Google Drive image failed to load:', imageUrl);
+            this.src = '/images/default-game.svg';
+          }
+        };
+      }
+    }
   }
 }
 

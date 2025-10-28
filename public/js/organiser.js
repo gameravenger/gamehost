@@ -694,6 +694,9 @@ class OrganiserManager {
         this.renderActiveGames(this.games);
         
         console.log(`✅ AUTO-SCAN: Completed for game ${game.name}, configured ${response.configuredSheets?.length || 0} sheets`);
+      } else if (response.solution === 'Configure individual file IDs manually') {
+        // Show manual configuration instructions
+        this.showManualConfigInstructions(gameId, game.name, response);
       } else {
         throw new Error(response.error || 'Auto-scan failed');
       }
@@ -702,6 +705,59 @@ class OrganiserManager {
       console.error('💥 AUTO-SCAN ERROR:', error);
       app.showNotification(`❌ Auto-scan failed: ${error.message}`, 'error');
     }
+  }
+
+  // Show manual configuration instructions
+  showManualConfigInstructions(gameId, gameName, response) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 600px;">
+        <h3>🔧 Manual Configuration Required</h3>
+        <p><strong>Game:</strong> ${gameName}</p>
+        
+        <div class="config-instructions" style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 15px 0;">
+          <h4>📋 How to get real Google Drive file IDs:</h4>
+          <ol style="margin: 10px 0; padding-left: 20px;">
+            <li><strong>Open your Google Drive folder</strong></li>
+            <li><strong>For each sheet file:</strong> Right-click → Share → Copy link</li>
+            <li><strong>Extract file ID from URL:</strong><br>
+                From: <code>https://drive.google.com/file/d/<span style="background: yellow;">1ABC123xyz</span>/view</code><br>
+                File ID is: <code>1ABC123xyz</code>
+            </li>
+            <li><strong>Use manual configuration</strong> to set the file IDs</li>
+          </ol>
+        </div>
+        
+        <div class="config-warning" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 15px 0;">
+          <h4 style="color: #856404; margin: 0 0 10px 0;">⚠️ Important:</h4>
+          <p style="margin: 0; color: #856404;">
+            Each file must be individually shared with "Anyone with the link can view" permissions.
+            Folder sharing alone is not enough for individual file downloads.
+          </p>
+        </div>
+        
+        <div class="modal-actions">
+          <button class="btn btn-primary" onclick="this.parentElement.parentElement.parentElement.remove()">
+            I Understand
+          </button>
+          <button class="btn btn-secondary" onclick="organiserManager.openManualConfig('${gameId}')">
+            Configure File IDs
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    app.showNotification(`⚠️ ${gameName} requires manual file ID configuration`, 'warning');
+  }
+
+  // Open manual configuration (placeholder for now)
+  openManualConfig(gameId) {
+    app.showNotification('Manual configuration interface coming soon. For now, contact support with your file IDs.', 'info');
+    // Remove the modal
+    document.querySelector('.modal-overlay')?.remove();
   }
 
   filterGames(status) {

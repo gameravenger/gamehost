@@ -454,9 +454,21 @@ router.post('/games/:id/auto-scan-sheets', authenticateOrganiser, async (req, re
     const scanResult = await googleDrive.scanFolderForSheets(existingGame.sheets_folder_id);
 
     if (!scanResult.success) {
-      return res.status(500).json({
-        error: 'Failed to scan Google Drive folder',
-        details: scanResult.error
+      // If scan failed, provide manual configuration instructions
+      return res.status(200).json({
+        success: false,
+        error: 'Automatic scan not available',
+        message: 'Manual configuration required for secure downloads',
+        solution: 'Configure individual file IDs manually',
+        instructions: {
+          step1: 'Open your Google Drive folder',
+          step2: 'For each sheet file: Right-click → Share → Copy link',
+          step3: 'Extract file ID from URL (the long string after /d/ and before /view)',
+          step4: 'Use the manual configuration to set file IDs',
+          example: 'From https://drive.google.com/file/d/1ABC123xyz/view → File ID is: 1ABC123xyz'
+        },
+        manualConfigEndpoint: `/api/organiser/games/${id}/sheet-files`,
+        scanMethod: scanResult.scanMethod || 'failed'
       });
     }
 

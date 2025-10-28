@@ -199,63 +199,41 @@ class GoogleDriveManager {
     }
   }
 
-  // FALLBACK: Scan public folder using intelligent estimation
+  // FALLBACK: Scan public folder using web scraping approach
   async scanPublicFolderForSheets(folderId) {
     try {
-      console.log(`🔍 PUBLIC SCAN: Attempting to scan public folder ${folderId}`);
+      console.log(`🔍 PUBLIC SCAN: Attempting to extract real file IDs from public folder ${folderId}`);
       
-      // Try to access the public folder to get some information
-      let detectedSheets = 10; // Conservative default assumption
-      let fileFormat = 'Sheet_{number}.pdf';
+      // Try to extract real file IDs from the public folder page
+      const sheetFiles = await this.extractRealFileIds(folderId);
       
-      try {
-        // Test if the folder is publicly accessible
-        const testUrl = `https://drive.google.com/drive/folders/${folderId}`;
-        const response = await fetch(testUrl, { 
-          method: 'HEAD',
-          timeout: 5000 
-        });
-        
-        if (response.ok || response.status === 403) {
-          console.log(`✅ PUBLIC SCAN: Folder ${folderId} is accessible`);
-          // Use a more realistic number for estimation
-          detectedSheets = 10; // Start with a smaller, more accurate estimate
-        }
-      } catch (fetchError) {
-        console.log(`⚠️ PUBLIC SCAN: Could not verify folder accessibility, using defaults`);
-        detectedSheets = 10; // Conservative estimate when we can't verify
-      }
-
-      // Generate realistic sheet file mapping
-      const sheetFiles = {};
-      
-      for (let i = 1; i <= detectedSheets; i++) {
-        // Create realistic file IDs that could work with Google Drive
-        // Using a format that mimics real Google Drive file IDs
-        const mockFileId = this.generateMockFileId(folderId, i);
-        
-        sheetFiles[i] = {
-          fileId: mockFileId,
-          fileName: `Sheet_${i}.pdf`,
-          size: 'estimated ~500KB',
-          directUrl: `https://drive.google.com/uc?export=download&id=${mockFileId}`,
-          placeholder: false, // These are functional placeholders
-          estimated: true
+      if (Object.keys(sheetFiles).length > 0) {
+        console.log(`✅ PUBLIC SCAN: Extracted ${Object.keys(sheetFiles).length} real file IDs`);
+        return {
+          success: true,
+          totalFiles: Object.keys(sheetFiles).length,
+          sheetFiles: sheetFiles,
+          scannedAt: new Date().toISOString(),
+          scanMethod: 'public_extraction',
+          placeholder: false,
+          estimated: false,
+          note: `Extracted ${Object.keys(sheetFiles).length} real file IDs from public folder`
         };
       }
-
-      const actualSheetsGenerated = Object.keys(sheetFiles).length;
-      console.log(`📋 PUBLIC SCAN: Generated functional mapping for ${actualSheetsGenerated} sheets (requested: ${detectedSheets})`);
       
+      // If extraction fails, fall back to manual instructions
+      console.log(`⚠️ PUBLIC SCAN: Could not extract file IDs automatically`);
       return {
-        success: true,
-        totalFiles: actualSheetsGenerated, // Use actual count, not estimated
-        sheetFiles: sheetFiles,
-        scannedAt: new Date().toISOString(),
-        scanMethod: 'public_estimation',
-        placeholder: false,
-        estimated: true,
-        note: `Generated ${actualSheetsGenerated} sheets based on public folder analysis`
+        success: false,
+        error: 'Could not extract file IDs from public folder',
+        solution: 'Manual configuration required',
+        instructions: {
+          step1: 'Open your Google Drive folder',
+          step2: 'Right-click each sheet file → Get link',
+          step3: 'Extract the file ID from each URL',
+          step4: 'Use the manual configuration endpoint to set individual file IDs'
+        },
+        scanMethod: 'extraction_failed'
       };
 
     } catch (error) {
@@ -300,6 +278,24 @@ class GoogleDriveManager {
     }
     
     return result;
+  }
+
+  // Extract real file IDs from public Google Drive folder
+  async extractRealFileIds(folderId) {
+    try {
+      console.log(`🔍 EXTRACTION: Attempting to extract real file IDs from folder ${folderId}`);
+      
+      // For now, return empty object to indicate extraction not available
+      // This will trigger the manual configuration flow
+      console.log(`⚠️ EXTRACTION: Automatic file ID extraction not implemented yet`);
+      console.log(`💡 SOLUTION: Use manual configuration with real file IDs`);
+      
+      return {};
+      
+    } catch (error) {
+      console.error('💥 EXTRACTION ERROR:', error);
+      return {};
+    }
   }
 
   async validateFolderId(folderId) {

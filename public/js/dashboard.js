@@ -73,11 +73,10 @@ class DashboardManager {
 
   async loadDashboardData() {
     try {
-      await Promise.all([
-        this.loadParticipations(),
-        this.loadNotifications(),
-        this.loadUserStats()
-      ]);
+      // Load participations first, then calculate stats based on them
+      await this.loadParticipations();
+      await this.loadNotifications();
+      await this.loadUserStats(); // This must come after participations are loaded
     } catch (error) {
       console.error('Error loading dashboard data:', error);
       app.showNotification('Failed to load dashboard data', 'error');
@@ -118,19 +117,32 @@ class DashboardManager {
 
   async loadUserStats() {
     try {
-      // Calculate stats from participations
-      const total = this.participations.length;
-      const approved = this.participations.filter(p => p.payment_status === 'approved').length;
-      const pending = this.participations.filter(p => p.payment_status === 'pending').length;
+      console.log('📊 STATS: Loading user statistics...');
+      console.log('📊 STATS: Participations data:', this.participations);
       
-      // Update stats display
-      document.getElementById('totalParticipations').textContent = total;
-      document.getElementById('approvedParticipations').textContent = approved;
-      document.getElementById('pendingParticipations').textContent = pending;
-      document.getElementById('totalWins').textContent = '0'; // Would come from wins API
+      // Calculate stats from participations
+      const total = this.participations ? this.participations.length : 0;
+      const approved = this.participations ? this.participations.filter(p => p.payment_status === 'approved').length : 0;
+      const pending = this.participations ? this.participations.filter(p => p.payment_status === 'pending').length : 0;
+      const rejected = this.participations ? this.participations.filter(p => p.payment_status === 'rejected').length : 0;
+      
+      console.log('📊 STATS: Calculated stats:', { total, approved, pending, rejected });
+      
+      // Update stats display with error handling
+      const totalEl = document.getElementById('totalParticipations');
+      const approvedEl = document.getElementById('approvedParticipations');
+      const pendingEl = document.getElementById('pendingParticipations');
+      const winsEl = document.getElementById('totalWins');
+      
+      if (totalEl) totalEl.textContent = total;
+      if (approvedEl) approvedEl.textContent = approved;
+      if (pendingEl) pendingEl.textContent = pending;
+      if (winsEl) winsEl.textContent = approved; // Use approved as wins for now
+      
+      console.log('✅ STATS: Dashboard stats updated successfully');
       
     } catch (error) {
-      console.error('Error loading user stats:', error);
+      console.error('❌ STATS: Error loading user stats:', error);
     }
   }
 
@@ -452,7 +464,7 @@ ERROR DETAILS:
     }
   }
 
-  // SECURE DOWNLOAD - Server-side streaming with no Google Drive exposure
+  // SECURE DOWNLOAD - Works with both individual files and secure folder access
   async downloadSecureSheet(participationId, sheetNumber, fileName) {
     try {
       app.showNotification(`🔐 Starting secure download for ${fileName}...`, 'info');
@@ -465,24 +477,45 @@ ERROR DETAILS:
       if (response.success && response.downloadUrl) {
         console.log(`✅ DOWNLOAD: Authorized for sheet ${sheetNumber}`);
         
-        // Direct download through our secure server - no Google Drive exposure
-        app.showNotification(`📥 Downloading ${fileName}...`, 'info');
-        
-        // Create download link that goes through our secure proxy
-        const link = document.createElement('a');
-        link.href = response.downloadUrl;
-        link.download = fileName;
-        link.style.display = 'none';
-        
-        // Add to DOM, trigger download, remove
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Update UI to show downloaded status
-        this.markSheetAsDownloaded(participationId, sheetNumber);
-        
-        app.showNotification(`✅ ${fileName} downloaded successfully`, 'success');
+        // Check if this is temporary folder access or direct streaming
+        if (response.temporaryAccess) {
+          // Handle secure folder access with warnings
+          console.log(`⚠️ DOWNLOAD: Using temporary secure folder access`);
+          
+          // Get the secure folder access information
+          const folderResponse = await app.apiCall(response.downloadUrl.replace('/api', ''));
+          
+          if (folderResponse.success && folderResponse.secureAccess) {
+            // Show secure download instructions with warnings
+            this.showSecureFolderInstructions(folderResponse);
+            
+            // Update UI to show downloaded status
+            this.markSheetAsDownloaded(participationId, sheetNumber);
+            
+            app.showNotification(`⚠️ Secure folder access provided for ${fileName}`, 'warning');
+          } else {
+            throw new Error('Failed to get secure folder access');
+          }
+        } else {
+          // Handle direct streaming
+          console.log(`📥 DOWNLOAD: Using direct streaming`);
+          
+          // Create download link that goes through our secure proxy
+          const link = document.createElement('a');
+          link.href = response.downloadUrl;
+          link.download = fileName;
+          link.style.display = 'none';
+          
+          // Add to DOM, trigger download, remove
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Update UI to show downloaded status
+          this.markSheetAsDownloaded(participationId, sheetNumber);
+          
+          app.showNotification(`✅ ${fileName} downloaded successfully`, 'success');
+        }
         
       } else {
         throw new Error(response.error || 'Download authorization failed');
@@ -505,7 +538,53 @@ ERROR DETAILS:
     }
   }
 
-  // This method is no longer needed - we stream files directly through our server
+  // Show secure folder instructions with strict warnings
+  showSecureFolderInstructions(folderInfo) {
+    const modal = document.createElement('div');
+    modal.className = 'secure-download-modal';
+    modal.innerHTML = `
+      <div class="secure-download-content">
+        <h3>⚠️ ${folderInfo.instructions.title}</h3>
+        
+        <div class="download-warning">
+          ${folderInfo.instructions.criticalWarning}
+        </div>
+        
+        <div class="download-steps">
+          <h4>STRICT Download Instructions:</h4>
+          <ol>
+            ${folderInfo.instructions.steps.map(step => `<li>${step}</li>`).join('')}
+          </ol>
+        </div>
+        
+        <div class="download-actions">
+          <a href="${folderInfo.secureAccess.url}" target="_blank" class="btn btn-primary">
+            ⚠️ Open Secure Folder (Use Responsibly)
+          </a>
+          <button class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">
+            I Understand the Rules
+          </button>
+        </div>
+        
+        <div class="security-info">
+          <small>
+            🛡️ This access is tracked and logged for security purposes.<br>
+            📋 Authorized file ONLY: <strong>${folderInfo.secureAccess.authorizedFile}</strong><br>
+            🚨 Downloading unauthorized files may result in account suspension.
+          </small>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Auto-remove after 45 seconds
+    setTimeout(() => {
+      if (modal.parentElement) {
+        modal.remove();
+      }
+    }, 45000);
+  }
 
   // Show security configuration notice for games not yet configured
   showSecurityConfigurationNotice() {

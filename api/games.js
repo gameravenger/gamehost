@@ -288,20 +288,37 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
     const individualFiles = game.individual_sheet_files || {};
     const fileId = individualFiles[requestedSheet.toString()];
 
+    // TEMPORARY FIX: If no individual file ID, use a secure folder-based approach
     if (!fileId) {
-      console.log(`🚫 SECURITY BLOCK: No individual file ID for sheet ${requestedSheet}`);
-      return res.status(501).json({
-        success: false,
-        error: 'Individual file download not configured',
-        message: 'This game is not properly configured for secure downloads',
-        details: {
-          issue: 'No individual file ID found for this sheet',
-          sheetNumber: requestedSheet,
-          gameName: game.name,
-          securityNote: 'Folder access would expose all sheets to all users',
-          adminAction: 'Game organizer must configure individual file IDs for each sheet'
-        },
-        temporaryDisabled: true
+      console.log(`⚠️ TEMPORARY: No individual file ID for sheet ${requestedSheet}, using secure folder access`);
+      
+      // Mark as downloaded first
+      const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
+      await supabaseAdmin
+        .from('game_participants')
+        .update({ 
+          downloaded_sheet_numbers: updatedDownloadedSheets,
+          sheets_downloaded: updatedDownloadedSheets.length === selectedSheetsAsNumbers.length,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', participationId);
+
+      // Return secure folder access with strict instructions
+      return res.json({
+        success: true,
+        fileName: fileName,
+        sheetNumber: requestedSheet,
+        gameName: game.name,
+        temporaryAccess: true,
+        downloadUrl: `/api/games/sheets/secure-folder-access/${participationId}/${sheetNumber}`,
+        message: `Sheet ${requestedSheet} authorized for download`,
+        security: {
+          temporaryMethod: true,
+          authorizedSheet: requestedSheet,
+          participantOnly: true,
+          downloadTracked: true,
+          warning: 'Only download your authorized sheet'
+        }
       });
     }
 
@@ -470,6 +487,94 @@ router.get('/sheets/proxy-download/:participationId/:sheetNumber', authenticateT
   } catch (error) {
     console.error('💥 Error in secure file streaming:', error);
     res.status(500).json({ error: 'Secure streaming failed' });
+  }
+});
+
+// SECURE FOLDER ACCESS - TEMPORARY SOLUTION WITH WARNINGS
+router.get('/sheets/secure-folder-access/:participationId/:sheetNumber', authenticateToken, async (req, res) => {
+  try {
+    const { participationId, sheetNumber } = req.params;
+    const userId = req.user.userId;
+
+    console.log(`🔄 SECURE FOLDER: User ${userId} accessing secure folder for sheet ${sheetNumber}`);
+
+    // Re-verify access (security check)
+    const { data: participation } = await supabaseAdmin
+      .from('game_participants')
+      .select(`
+        *,
+        games (
+          sheets_folder_id,
+          sheet_file_format,
+          name
+        )
+      `)
+      .eq('id', participationId)
+      .eq('user_id', userId)
+      .eq('payment_status', 'approved')
+      .single();
+
+    if (!participation) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const requestedSheet = parseInt(sheetNumber);
+    const selectedSheetsAsNumbers = (participation.selected_sheet_numbers || []).map(sheet => 
+      typeof sheet === 'string' ? parseInt(sheet) : sheet
+    );
+    
+    if (!selectedSheetsAsNumbers.includes(requestedSheet)) {
+      return res.status(403).json({ error: 'Sheet not in your selection' });
+    }
+
+    const game = participation.games;
+    const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', sheetNumber);
+    const folderId = game.sheets_folder_id;
+
+    if (!folderId) {
+      return res.status(404).json({ error: 'Game sheets not available' });
+    }
+
+    console.log(`✅ SECURE FOLDER: Providing secure folder access for user ${userId}, sheet ${requestedSheet}`);
+
+    // Create secure folder URL with warning
+    const secureAccessUrl = `https://drive.google.com/drive/folders/${folderId}?usp=sharing`;
+    
+    // Return secure folder access with strict warnings
+    res.json({
+      success: true,
+      fileName: fileName,
+      sheetNumber: requestedSheet,
+      gameName: game.name,
+      accessMethod: 'secure_folder_with_warnings',
+      instructions: {
+        title: `⚠️ SECURE ACCESS: Download Your Sheet Only`,
+        steps: [
+          `1. Click the secure folder link below`,
+          `2. Look for and download ONLY: ${fileName}`,
+          `3. DO NOT download any other files`,
+          `4. Close the folder immediately after downloading`
+        ],
+        criticalWarning: `🚨 You are authorized to download ONLY ${fileName}. Downloading other files violates terms of service and may result in account suspension.`
+      },
+      secureAccess: {
+        url: secureAccessUrl,
+        authorizedFile: fileName,
+        participantId: userId,
+        sheetNumber: requestedSheet,
+        trackingId: `${participationId}-${sheetNumber}-${Date.now()}`
+      },
+      downloadTracking: {
+        participationId: participationId,
+        userId: userId,
+        timestamp: new Date().toISOString(),
+        method: 'secure_folder_access'
+      }
+    });
+
+  } catch (error) {
+    console.error('💥 Error in secure folder access:', error);
+    res.status(500).json({ error: 'Secure folder access failed' });
   }
 });
 

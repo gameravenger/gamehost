@@ -27,6 +27,40 @@
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
 
+/* Fix modal scrolling */
+.modal-content {
+  background: var(--card-bg);
+  border-radius: 15px;
+  padding: 30px;
+  max-width: 700px;
+  width: 90%;
+  max-height: 85vh;
+  overflow-y: auto;
+  border: 2px solid var(--primary-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.download-list {
+  max-height: 400px;
+  overflow-y: auto;
+  margin: 20px 0;
+  padding: 10px;
+  border: 1px solid rgba(255, 107, 53, 0.2);
+  border-radius: 8px;
+}
+
+.download-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  margin-bottom: 10px;
+  background: rgba(255, 107, 53, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 107, 53, 0.1);
+}
+
 .secure-download-content h3 {
   color: var(--primary-color);
   margin-bottom: 20px;

@@ -277,10 +277,18 @@ class GameDetailsManager {
     try {
       const response = await app.apiCall(`/games/${this.gameId}/sold-sheets`);
       this.soldSheets = response.soldSheets || [];
-      console.log('Sold sheets loaded:', this.soldSheets);
+      this.approvedSheets = response.approvedSheets || [];
+      this.reservedSheets = response.reservedSheets || [];
+      console.log('Sheet status loaded:', {
+        total: this.soldSheets.length,
+        approved: this.approvedSheets.length,
+        reserved: this.reservedSheets.length
+      });
     } catch (error) {
       console.error('Error loading sold sheets:', error);
       this.soldSheets = [];
+      this.approvedSheets = [];
+      this.reservedSheets = [];
     }
   }
 
@@ -297,15 +305,28 @@ class GameDetailsManager {
     }
 
     sheetGrid.innerHTML = sheetNumbers.map(num => {
-      const isSold = this.soldSheets && this.soldSheets.includes(num);
-      const soldClass = isSold ? 'sold' : '';
-      const clickHandler = isSold ? '' : `onclick="gameDetails.toggleSheetSelection(${num})"`;
-      const soldIndicator = isSold ? '<span class="sold-indicator">SOLD</span>' : '';
+      const isUnavailable = this.soldSheets && this.soldSheets.includes(num);
+      const isApproved = this.approvedSheets && this.approvedSheets.includes(num);
+      const isReserved = this.reservedSheets && this.reservedSheets.includes(num);
+      
+      let statusClass = '';
+      let statusIndicator = '';
+      let clickHandler = `onclick="gameDetails.toggleSheetSelection(${num})"`;
+      
+      if (isApproved) {
+        statusClass = 'sold';
+        statusIndicator = '<span class="sold-indicator">SOLD</span>';
+        clickHandler = '';
+      } else if (isReserved) {
+        statusClass = 'reserved';
+        statusIndicator = '<span class="reserved-indicator">RESERVED</span>';
+        clickHandler = '';
+      }
       
       return `
-        <div class="sheet-number ${soldClass}" data-sheet="${num}" ${clickHandler}>
+        <div class="sheet-number ${statusClass}" data-sheet="${num}" ${clickHandler}>
           ${num}
-          ${soldIndicator}
+          ${statusIndicator}
         </div>
       `;
     }).join('');
@@ -316,9 +337,13 @@ class GameDetailsManager {
     const sheetNum = parseInt(sheetNumber);
     const sheetElement = document.querySelector(`[data-sheet="${sheetNum}"]`);
     
-    // Check if sheet is sold
+    // Check if sheet is unavailable (sold or reserved)
     if (this.soldSheets && this.soldSheets.includes(sheetNum)) {
-      app.showNotification(`Sheet ${sheetNum} is already sold and not available`, 'error');
+      if (this.approvedSheets && this.approvedSheets.includes(sheetNum)) {
+        app.showNotification(`Sheet ${sheetNum} is already sold and not available`, 'error');
+      } else if (this.reservedSheets && this.reservedSheets.includes(sheetNum)) {
+        app.showNotification(`Sheet ${sheetNum} is currently reserved by another user`, 'warning');
+      }
       return;
     }
     

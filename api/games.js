@@ -208,36 +208,47 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Get sold sheets for a game
+// Get sold/reserved sheets for a game (includes pending and approved)
 router.get('/:id/sold-sheets', async (req, res) => {
   try {
     const { id: gameId } = req.params;
     
-    // Get all approved participations for this game
+    // Get all participations for this game (pending and approved, but not rejected)
     const { data: participations, error } = await supabase
       .from('game_participants')
-      .select('selected_sheet_numbers')
+      .select('selected_sheet_numbers, payment_status')
       .eq('game_id', gameId)
-      .eq('payment_status', 'approved');
+      .in('payment_status', ['pending', 'approved']); // Include both pending and approved
 
     if (error) {
       return res.status(400).json({ error: error.message });
     }
 
-    // Collect all sold sheet numbers
-    const soldSheets = [];
+    // Collect all reserved/sold sheet numbers
+    const reservedSheets = [];
+    const approvedSheets = [];
+    
     if (participations && participations.length > 0) {
       participations.forEach(participation => {
         if (participation.selected_sheet_numbers) {
-          soldSheets.push(...participation.selected_sheet_numbers);
+          if (participation.payment_status === 'approved') {
+            approvedSheets.push(...participation.selected_sheet_numbers);
+          } else if (participation.payment_status === 'pending') {
+            reservedSheets.push(...participation.selected_sheet_numbers);
+          }
         }
       });
     }
 
-    // Remove duplicates and sort
-    const uniqueSoldSheets = [...new Set(soldSheets)].sort((a, b) => a - b);
+    // Combine all unavailable sheets (both reserved and sold)
+    const allUnavailableSheets = [...reservedSheets, ...approvedSheets];
+    const uniqueUnavailableSheets = [...new Set(allUnavailableSheets)].sort((a, b) => a - b);
 
-    res.json({ soldSheets: uniqueSoldSheets });
+    res.json({ 
+      soldSheets: uniqueUnavailableSheets, // All unavailable sheets
+      approvedSheets: [...new Set(approvedSheets)].sort((a, b) => a - b), // Only approved/sold
+      reservedSheets: [...new Set(reservedSheets)].sort((a, b) => a - b) // Only pending/reserved
+    });
   } catch (error) {
     console.error('Error fetching sold sheets:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -271,29 +282,47 @@ router.post('/:id/register', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Game has already ended' });
     }
 
-    // Get all user's participations for this game to check for sheet conflicts
-    const { data: existingParticipations } = await supabaseAdmin
+    // Check for conflicts with ALL existing participations (pending and approved)
+    const { data: allParticipations } = await supabaseAdmin
       .from('game_participants')
-      .select('selected_sheet_numbers')
+      .select('selected_sheet_numbers, user_id, payment_status')
       .eq('game_id', gameId)
-      .eq('user_id', userId);
+      .in('payment_status', ['pending', 'approved']); // Include both pending and approved
 
-    // Check if any of the selected sheets are already taken by this user
+    // Collect all taken sheets and user's own sheets
+    const allTakenSheets = [];
     const userTakenSheets = [];
-    if (existingParticipations && existingParticipations.length > 0) {
-      existingParticipations.forEach(participation => {
+    
+    if (allParticipations && allParticipations.length > 0) {
+      allParticipations.forEach(participation => {
         if (participation.selected_sheet_numbers) {
-          userTakenSheets.push(...participation.selected_sheet_numbers);
+          // Add to all taken sheets
+          allTakenSheets.push(...participation.selected_sheet_numbers);
+          
+          // Add to user's own sheets if it's the same user
+          if (participation.user_id === userId) {
+            userTakenSheets.push(...participation.selected_sheet_numbers);
+          }
         }
       });
     }
 
-    // Check for conflicts with user's own sheets
-    const conflictingSheets = selectedSheetNumbers.filter(sheet => userTakenSheets.includes(sheet));
+    // Check for conflicts with ANY existing sheets (reserved or sold)
+    const conflictingSheets = selectedSheetNumbers.filter(sheet => allTakenSheets.includes(sheet));
     if (conflictingSheets.length > 0) {
-      return res.status(400).json({ 
-        error: `You have already purchased these sheets: ${conflictingSheets.join(', ')}. Please select different sheets.` 
-      });
+      // Check if conflicts are with user's own sheets or others
+      const userConflicts = conflictingSheets.filter(sheet => userTakenSheets.includes(sheet));
+      const otherConflicts = conflictingSheets.filter(sheet => !userTakenSheets.includes(sheet));
+      
+      if (otherConflicts.length > 0) {
+        return res.status(400).json({ 
+          error: `These sheets are already taken by other users: ${otherConflicts.join(', ')}. Please select different sheets.` 
+        });
+      } else if (userConflicts.length > 0) {
+        return res.status(400).json({ 
+          error: `You have already selected these sheets: ${userConflicts.join(', ')}. Please select different sheets.` 
+        });
+      }
     }
 
     // Calculate total amount based on sheets selected

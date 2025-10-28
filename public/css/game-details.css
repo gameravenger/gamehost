@@ -296,6 +296,62 @@
   border: 1px solid rgba(255, 107, 53, 0.2);
 }
 
+/* Sheet Status Legend */
+.sheet-status-legend {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 20px 0;
+}
+
+.sheet-status-legend h4 {
+  margin: 0 0 15px 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+
+.legend-box {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  position: relative;
+}
+
+.legend-box.available {
+  background: white;
+  border-color: #ddd;
+}
+
+.legend-box.reserved {
+  background: #fff3cd;
+  border-color: #ffeaa7;
+}
+
+.legend-box.sold {
+  background: #e0e0e0;
+  border-color: #bbb;
+}
+
+.legend-box.selected {
+  background: var(--primary-color);
+  border-color: var(--primary-color);
+}
+
 .selector-header {
   display: flex;
   justify-content: space-between;
@@ -401,6 +457,21 @@
   transform: none;
 }
 
+.sheet-number.reserved {
+  background: #fff3cd;
+  border-color: #ffeaa7;
+  color: #856404;
+  cursor: not-allowed;
+  position: relative;
+  opacity: 0.8;
+}
+
+.sheet-number.reserved:hover {
+  background: #fff3cd;
+  border-color: #ffeaa7;
+  transform: none;
+}
+
 .sold-indicator {
   position: absolute;
   top: 50%;
@@ -410,6 +481,19 @@
   font-weight: bold;
   color: #666;
   background: rgba(255, 255, 255, 0.8);
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.reserved-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.5rem;
+  font-weight: bold;
+  color: #856404;
+  background: rgba(255, 255, 255, 0.9);
   padding: 1px 3px;
   border-radius: 3px;
 }

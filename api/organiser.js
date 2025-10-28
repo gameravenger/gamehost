@@ -374,7 +374,7 @@ router.put('/participants/:id/status', authenticateOrganiser, async (req, res) =
       return res.status(400).json({ error: error.message });
     }
 
-    // Send notification to user
+    // Send notification to user and handle sheet release
     if (status === 'approved') {
       await supabaseAdmin
         .from('notifications')
@@ -384,9 +384,28 @@ router.put('/participants/:id/status', authenticateOrganiser, async (req, res) =
           message: `Your payment for the game has been approved. You can now download your sheets.`,
           type: 'payment_approved'
         }]);
+    } else if (status === 'rejected') {
+      // IMPORTANT: When payment is rejected, the sheets are automatically released
+      // because our sold-sheets API only includes 'pending' and 'approved' status
+      // Rejected participations are excluded, making their sheets available again
+      
+      console.log(`🔄 SHEET RELEASE: Payment rejected for participant ${id}. Sheets ${participant.selected_sheet_numbers?.join(', ')} are now available again.`);
+      
+      await supabaseAdmin
+        .from('notifications')
+        .insert([{
+          user_id: participant.user_id,
+          title: 'Payment Rejected',
+          message: `Your payment for the game has been rejected. Your selected sheets have been released and are available for others. Please contact the organiser for more information.`,
+          type: 'payment_rejected'
+        }]);
     }
 
-    res.json({ message: `Participant ${status} successfully`, participant: updatedParticipant });
+    res.json({ 
+      message: `Participant ${status} successfully`, 
+      participant: updatedParticipant,
+      sheetsReleased: status === 'rejected' ? participant.selected_sheet_numbers : null
+    });
   } catch (error) {
     console.error('Error updating participant status:', error);
     res.status(500).json({ error: 'Internal server error' });

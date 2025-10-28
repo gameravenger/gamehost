@@ -9,24 +9,56 @@ class GoogleDriveManager {
 
   async init() {
     try {
-      // Initialize Google Drive API with service account or OAuth2
-      this.auth = new google.auth.GoogleAuth({
-        credentials: {
-          client_id: process.env.GOOGLE_DRIVE_CLIENT_ID,
-          client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET,
-          // For service account, you'd use:
-          // type: "service_account",
-          // project_id: process.env.GOOGLE_PROJECT_ID,
-          // private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-          // private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-          // client_email: process.env.GOOGLE_CLIENT_EMAIL,
-        },
-        scopes: ['https://www.googleapis.com/auth/drive.readonly']
-      });
+      console.log('🔑 GOOGLE DRIVE: Initializing with API credentials...');
+      
+      // Check if we have the required environment variables
+      const hasClientCredentials = process.env.GOOGLE_DRIVE_CLIENT_ID && process.env.GOOGLE_DRIVE_CLIENT_SECRET;
+      const hasServiceAccount = process.env.GOOGLE_CLIENT_EMAIL && process.env.GOOGLE_PRIVATE_KEY;
+      
+      if (hasServiceAccount) {
+        console.log('🔑 GOOGLE DRIVE: Using service account credentials');
+        // Use service account (recommended for server-side)
+        this.auth = new google.auth.GoogleAuth({
+          credentials: {
+            type: "service_account",
+            project_id: process.env.GOOGLE_PROJECT_ID,
+            private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
+            private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+            client_email: process.env.GOOGLE_CLIENT_EMAIL,
+            client_id: process.env.GOOGLE_CLIENT_ID,
+          },
+          scopes: ['https://www.googleapis.com/auth/drive.readonly']
+        });
+      } else if (hasClientCredentials) {
+        console.log('🔑 GOOGLE DRIVE: Using OAuth2 client credentials');
+        // Use OAuth2 client credentials
+        this.auth = new google.auth.GoogleAuth({
+          credentials: {
+            client_id: process.env.GOOGLE_DRIVE_CLIENT_ID,
+            client_secret: process.env.GOOGLE_DRIVE_CLIENT_SECRET,
+          },
+          scopes: ['https://www.googleapis.com/auth/drive.readonly']
+        });
+      } else {
+        console.log('⚠️ GOOGLE DRIVE: No API credentials found, will use public folder approach');
+        this.drive = null;
+        return;
+      }
 
       this.drive = google.drive({ version: 'v3', auth: this.auth });
+      
+      // Test the connection
+      try {
+        await this.drive.about.get({ fields: 'user' });
+        console.log('✅ GOOGLE DRIVE: API connection successful');
+      } catch (testError) {
+        console.error('❌ GOOGLE DRIVE: API test failed:', testError.message);
+        this.drive = null;
+      }
+      
     } catch (error) {
-      console.error('Google Drive initialization error:', error);
+      console.error('💥 GOOGLE DRIVE: Initialization error:', error);
+      this.drive = null;
     }
   }
 
@@ -131,23 +163,30 @@ class GoogleDriveManager {
       // First try to use the Google Drive API if available
       if (this.drive) {
         try {
-          console.log(`🔑 SCANNING: Attempting API scan with Google Drive API`);
+          console.log(`🔑 SCANNING: Attempting API scan with Google Drive API for folder ${folderId}`);
           
           // Use Google Drive API to list all files in folder
           const response = await this.drive.files.list({
             q: `'${folderId}' in parents and trashed=false`,
-            fields: 'files(id, name, size, mimeType)',
-            orderBy: 'name'
+            fields: 'files(id, name, size, mimeType, webViewLink)',
+            orderBy: 'name',
+            pageSize: 1000 // Handle up to 1000 files
           });
 
           const files = response.data.files || [];
           console.log(`📁 SCANNING: Found ${files.length} files in folder via API`);
+
+          if (files.length === 0) {
+            console.log(`⚠️ SCANNING: No files found in folder ${folderId}. Check folder ID and permissions.`);
+          }
 
           // Extract sheet numbers and create mapping
           const sheetFiles = {};
           const sheetPattern = /(?:sheet[_\s]*)?(\d+)/i;
 
           files.forEach(file => {
+            console.log(`🔍 SCANNING: Processing file: ${file.name} (${file.id})`);
+            
             // Skip non-PDF files
             if (!file.name.toLowerCase().endsWith('.pdf')) {
               console.log(`⏭️ SCANNING: Skipping non-PDF file: ${file.name}`);
@@ -162,7 +201,9 @@ class GoogleDriveManager {
                 fileId: file.id,
                 fileName: file.name,
                 size: file.size,
-                directUrl: `https://drive.google.com/uc?export=download&id=${file.id}`
+                mimeType: file.mimeType,
+                directUrl: `https://drive.google.com/uc?export=download&id=${file.id}`,
+                webViewLink: file.webViewLink
               };
               console.log(`✅ SCANNING: Sheet ${sheetNumber} -> ${file.name} (${file.id})`);
             } else {
@@ -170,20 +211,30 @@ class GoogleDriveManager {
             }
           });
 
-          console.log(`🎯 SCANNING: Successfully mapped ${Object.keys(sheetFiles).length} sheets via API`);
-          return {
-            success: true,
-            totalFiles: files.length,
-            sheetFiles: sheetFiles,
-            scannedAt: new Date().toISOString(),
-            scanMethod: 'api'
-          };
+          const mappedCount = Object.keys(sheetFiles).length;
+          console.log(`🎯 SCANNING: Successfully mapped ${mappedCount} sheets via API`);
+          
+          if (mappedCount > 0) {
+            return {
+              success: true,
+              totalFiles: files.length,
+              sheetFiles: sheetFiles,
+              scannedAt: new Date().toISOString(),
+              scanMethod: 'api',
+              apiUsed: true
+            };
+          } else {
+            console.log(`⚠️ SCANNING: No valid sheet files found, falling back to bulk approach`);
+          }
 
         } catch (apiError) {
           console.error('💥 API SCANNING ERROR:', apiError);
+          console.error('💥 API ERROR DETAILS:', apiError.response?.data || apiError.message);
           console.log('🔄 SCANNING: Falling back to public folder scan');
           // Fall through to public scan
         }
+      } else {
+        console.log('⚠️ SCANNING: Google Drive API not available, using bulk approach');
       }
 
       // Fallback to public folder scanning

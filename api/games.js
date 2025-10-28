@@ -1128,12 +1128,29 @@ router.get('/sheets/secure-proxy/:participationId/:sheetNumber/:fileName', authe
     
     // SECURE APPROACH: Server downloads the file and streams it to user
     // This prevents any Google Drive exposure
-    const googleDriveUrl = `https://drive.google.com/uc?export=download&id=${folderId}&filename=${encodeURIComponent(fileName)}`;
+    
+    // Check if we have individual file IDs configured
+    const individualFiles = game.individual_sheet_files || {};
+    const specificFileId = individualFiles[requestedSheet.toString()];
+    
+    let googleDriveUrl;
+    
+    if (specificFileId && !specificFileId.startsWith('FOLDER_')) {
+      // Use specific file ID (from API scan)
+      googleDriveUrl = `https://drive.google.com/uc?export=download&id=${specificFileId}`;
+      console.log(`🔐 SECURE PROXY: Using specific file ID ${specificFileId} for ${fileName}`);
+    } else {
+      // Fallback to folder-based approach
+      googleDriveUrl = `https://drive.google.com/uc?export=download&id=${folderId}&filename=${encodeURIComponent(fileName)}`;
+      console.log(`🔐 SECURE PROXY: Using folder-based approach for ${fileName}`);
+    }
     
     try {
+      console.log(`🔐 SECURE PROXY: Fetching from ${googleDriveUrl}`);
       const response = await fetch(googleDriveUrl);
       
       if (!response.ok) {
+        console.error(`❌ SECURE PROXY: Google Drive returned ${response.status} for ${googleDriveUrl}`);
         throw new Error(`Google Drive returned ${response.status}`);
       }
       

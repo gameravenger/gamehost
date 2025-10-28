@@ -284,6 +284,27 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
     // Alternative: Create a more specific file URL if we know the file ID
     // For now, we'll use a proxy approach to ensure security
     
+    // Check if game has individual file IDs configured
+    const individualFiles = game.individual_sheet_files || {};
+    const fileId = individualFiles[requestedSheet.toString()];
+
+    if (!fileId) {
+      console.log(`🚫 SECURITY BLOCK: No individual file ID for sheet ${requestedSheet}`);
+      return res.status(501).json({
+        success: false,
+        error: 'Individual file download not configured',
+        message: 'This game is not properly configured for secure downloads',
+        details: {
+          issue: 'No individual file ID found for this sheet',
+          sheetNumber: requestedSheet,
+          gameName: game.name,
+          securityNote: 'Folder access would expose all sheets to all users',
+          adminAction: 'Game organizer must configure individual file IDs for each sheet'
+        },
+        temporaryDisabled: true
+      });
+    }
+
     // Mark this sheet as downloaded BEFORE providing download link
     const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
     await supabaseAdmin
@@ -295,10 +316,9 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
       })
       .eq('id', participationId);
 
-    // Log the authorized download
-    console.log(`📥 DOWNLOAD AUTHORIZED: User ${userId}, Game ${game.name}, Sheet ${requestedSheet}, File: ${fileName}`);
+    console.log(`📥 SECURE AUTHORIZATION: User ${userId} authorized for individual file ${fileId}`);
 
-    // Return direct download information
+    // Return secure download information with individual file access
     res.json({
       success: true,
       fileName: fileName,
@@ -306,8 +326,10 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
       gameName: game.name,
       directDownload: true,
       downloadUrl: `/api/games/sheets/proxy-download/${participationId}/${sheetNumber}`,
-      message: `Sheet ${requestedSheet} authorized for download`,
+      message: `Sheet ${requestedSheet} authorized for secure individual download`,
       security: {
+        individualFileAccess: true,
+        noFolderExposure: true,
         oneTimeDownload: true,
         authorizedSheet: requestedSheet,
         participantOnly: true,
@@ -321,13 +343,13 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
   }
 });
 
-// PROXY DOWNLOAD - PROVIDES SECURE ACCESS TO INDIVIDUAL SHEETS
+// SECURE FILE PROXY - STREAMS INDIVIDUAL FILES WITHOUT FOLDER EXPOSURE
 router.get('/sheets/proxy-download/:participationId/:sheetNumber', authenticateToken, async (req, res) => {
   try {
     const { participationId, sheetNumber } = req.params;
     const userId = req.user.userId;
 
-    console.log(`🔄 PROXY DOWNLOAD: User ${userId} downloading sheet ${sheetNumber}`);
+    console.log(`🔄 SECURE PROXY: User ${userId} requesting file stream for sheet ${sheetNumber}`);
 
     // Re-verify access (security check)
     const { data: participation } = await supabaseAdmin
@@ -337,7 +359,8 @@ router.get('/sheets/proxy-download/:participationId/:sheetNumber', authenticateT
         games (
           sheets_folder_id,
           sheet_file_format,
-          name
+          name,
+          individual_sheet_files
         )
       `)
       .eq('id', participationId)
@@ -358,49 +381,65 @@ router.get('/sheets/proxy-download/:participationId/:sheetNumber', authenticateT
       return res.status(403).json({ error: 'Unauthorized sheet access' });
     }
 
+    // Check if already downloaded
+    const downloadedSheets = participation.downloaded_sheet_numbers || [];
+    if (downloadedSheets.includes(requestedSheet)) {
+      return res.status(409).json({ 
+        error: 'This sheet has already been downloaded',
+        code: 'ALREADY_DOWNLOADED'
+      });
+    }
+
     const game = participation.games;
     const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', sheetNumber);
-    const folderId = game.sheets_folder_id;
 
-    console.log(`✅ PROXY: Authorized download for user ${userId}, sheet ${requestedSheet}, file: ${fileName}`);
+    // Check if game has individual file IDs configured
+    const individualFiles = game.individual_sheet_files || {};
+    const fileId = individualFiles[sheetNumber.toString()];
 
-    // Since we can't directly access individual files without file IDs,
-    // we'll provide a secure access page that shows only the user's authorized sheets
-    const secureAccessUrl = `https://drive.google.com/drive/folders/${folderId}?usp=sharing`;
+    if (!fileId) {
+      console.log(`🚫 SECURITY: No individual file ID for sheet ${requestedSheet} in game ${game.name}`);
+      return res.status(501).json({
+        error: 'Individual file download not configured for this sheet',
+        message: 'This game is not properly configured for secure downloads',
+        details: {
+          issue: 'No individual file ID found for this sheet',
+          sheetNumber: requestedSheet,
+          gameName: game.name,
+          adminAction: 'Game organizer must add individual file IDs for each sheet'
+        },
+        temporaryDisabled: true
+      });
+    }
+
+    console.log(`✅ SECURE PROXY: Found individual file ID for sheet ${requestedSheet}`);
+
+    // Mark as downloaded BEFORE providing access
+    const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
+    await supabaseAdmin
+      .from('game_participants')
+      .update({ 
+        downloaded_sheet_numbers: updatedDownloadedSheets,
+        sheets_downloaded: updatedDownloadedSheets.length === selectedSheetsAsNumbers.length,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', participationId);
+
+    // Create secure direct download URL for individual file
+    const directFileUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
     
-    // Return a secure download page with instructions
-    res.json({
-      success: true,
-      fileName: fileName,
-      sheetNumber: requestedSheet,
-      gameName: game.name,
-      accessMethod: 'secure_folder',
-      instructions: {
-        title: `Download Your Sheet: ${fileName}`,
-        steps: [
-          `1. Click the secure folder link below`,
-          `2. Look for and download ONLY your authorized sheet: ${fileName}`,
-          `3. Do not download any other files - this violates terms of service`,
-          `4. Close the folder after downloading your sheet`
-        ],
-        warning: `⚠️ You are authorized to download ONLY ${fileName}. Downloading other files is prohibited.`
-      },
-      secureAccess: {
-        url: secureAccessUrl,
-        authorizedFile: fileName,
-        participantId: userId,
-        sheetNumber: requestedSheet
-      },
-      downloadTracking: {
-        participationId: participationId,
-        userId: userId,
-        timestamp: new Date().toISOString()
-      }
-    });
+    console.log(`📥 SECURE DOWNLOAD: User ${userId} authorized for file ${fileId}`);
+
+    // Set download headers
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('Content-Type', 'application/pdf');
+    
+    // Redirect to the individual file (no folder access)
+    res.redirect(directFileUrl);
 
   } catch (error) {
-    console.error('💥 Error in proxy download:', error);
-    res.status(500).json({ error: 'Download proxy failed' });
+    console.error('💥 Error in secure proxy:', error);
+    res.status(500).json({ error: 'Secure proxy failed' });
   }
 });
 

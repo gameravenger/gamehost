@@ -278,6 +278,93 @@ router.put('/games/:id', authenticateOrganiser, async (req, res) => {
   }
 });
 
+// Configure individual sheet file IDs for secure downloads
+router.put('/games/:id/sheet-files', authenticateOrganiser, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { individualSheetFiles } = req.body;
+
+    console.log(`🔧 ORGANISER: Configuring individual sheet files for game ${id}`);
+
+    // Get organiser ID
+    const { data: organiser } = await supabaseAdmin
+      .from('organisers')
+      .select('id')
+      .eq('user_id', req.user.userId)
+      .single();
+
+    // Verify game belongs to organiser
+    const { data: existingGame } = await supabaseAdmin
+      .from('games')
+      .select('organiser_id, name, total_sheets')
+      .eq('id', id)
+      .single();
+
+    if (!existingGame || existingGame.organiser_id !== organiser.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Validate the individual sheet files format
+    if (!individualSheetFiles || typeof individualSheetFiles !== 'object') {
+      return res.status(400).json({ 
+        error: 'Invalid sheet files format',
+        expectedFormat: 'Object with sheet numbers as keys and Google Drive file IDs as values',
+        example: '{"1": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms", "2": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upmt"}'
+      });
+    }
+
+    // Validate file IDs format
+    const fileIdPattern = /^[a-zA-Z0-9_-]{25,}$/;
+    const invalidEntries = [];
+    
+    Object.entries(individualSheetFiles).forEach(([sheetNum, fileId]) => {
+      if (!fileIdPattern.test(fileId)) {
+        invalidEntries.push({ sheet: sheetNum, fileId: fileId });
+      }
+    });
+
+    if (invalidEntries.length > 0) {
+      return res.status(400).json({
+        error: 'Invalid Google Drive file IDs',
+        invalidEntries: invalidEntries,
+        note: 'File IDs should be 25+ characters long and contain only letters, numbers, underscores, and hyphens',
+        howToGetFileId: 'Right-click file in Google Drive → Get link → Extract ID from URL'
+      });
+    }
+
+    // Update the game with individual sheet files
+    const { data: updatedGame, error } = await supabaseAdmin
+      .from('games')
+      .update({ 
+        individual_sheet_files: individualSheetFiles,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select('id, name, individual_sheet_files')
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log(`✅ ORGANISER: Individual sheet files configured for game ${existingGame.name}`);
+
+    res.json({
+      success: true,
+      message: 'CRITICAL SECURITY UPDATE: Individual sheet files configured successfully',
+      game: updatedGame,
+      secureDownloadsEnabled: Object.keys(individualSheetFiles).length > 0,
+      configuredSheets: Object.keys(individualSheetFiles).map(Number).sort((a, b) => a - b),
+      securityNote: 'Users can now only download their specific approved sheets - NO folder access',
+      businessProtection: 'This prevents users from downloading all sheets and causing business loss'
+    });
+
+  } catch (error) {
+    console.error('Error configuring sheet files:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Get game participants for verification
 router.get('/games/:id/participants', authenticateOrganiser, async (req, res) => {
   try {

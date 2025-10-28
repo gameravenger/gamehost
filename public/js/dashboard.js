@@ -490,6 +490,9 @@ ERROR DETAILS:
         this.markSheetAsDownloaded(participationId, sheetNumber);
       } else if (error.message.includes('not authorized')) {
         app.showNotification(`🚫 You are not authorized to download ${fileName}`, 'error');
+      } else if (error.message.includes('not configured') || error.message.includes('temporarily disabled')) {
+        app.showNotification(`🔒 Secure downloads not configured for this game yet`, 'warning');
+        this.showSecurityConfigurationNotice();
       } else {
         app.showNotification(`❌ Failed to download ${fileName}: ${error.message}`, 'error');
       }
@@ -543,6 +546,53 @@ ERROR DETAILS:
     }, 30000);
     
     app.showNotification(`🔐 Secure folder opened for ${downloadInfo.fileName}`, 'success');
+  }
+
+  // Show security configuration notice for games not yet configured
+  showSecurityConfigurationNotice() {
+    const modal = document.createElement('div');
+    modal.className = 'secure-download-modal';
+    modal.innerHTML = `
+      <div class="secure-download-content">
+        <h3>🔒 Secure Downloads Not Yet Configured</h3>
+        
+        <div class="download-warning">
+          ⚠️ This game is not yet configured for secure individual sheet downloads
+        </div>
+        
+        <div class="download-steps">
+          <h4>Why downloads are disabled:</h4>
+          <ul>
+            <li>🛡️ <strong>Security Protection:</strong> We prevent folder access that would expose all sheets</li>
+            <li>💰 <strong>Business Protection:</strong> Folder access would allow downloading all sheets, causing massive losses</li>
+            <li>🔐 <strong>Individual File Access:</strong> Each sheet needs its own secure file ID</li>
+            <li>⚡ <strong>Coming Soon:</strong> Organizer is configuring individual sheet access</li>
+          </ul>
+        </div>
+        
+        <div class="download-actions">
+          <button class="btn btn-primary" onclick="this.parentElement.parentElement.parentElement.remove()">
+            I Understand
+          </button>
+        </div>
+        
+        <div class="security-info">
+          <small>
+            🛡️ This security measure protects both users and the business.<br>
+            📋 Contact the game organizer if you need immediate access to your sheets.
+          </small>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Auto-remove after 20 seconds
+    setTimeout(() => {
+      if (modal.parentElement) {
+        modal.remove();
+      }
+    }, 20000);
   }
 
   // Mark sheet as downloaded in the UI

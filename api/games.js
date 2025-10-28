@@ -593,6 +593,16 @@ router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
   }
 });
 
+// AUTH TEST ENDPOINT - matches frontend expectation
+router.get('/auth-test', authenticateToken, (req, res) => {
+  res.json({
+    success: true,
+    message: 'Authentication working',
+    user: req.user,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // SIMPLE AUTH TEST ENDPOINT - moved to avoid route conflict
 router.get('/test/auth', authenticateToken, (req, res) => {
   res.json({

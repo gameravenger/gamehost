@@ -263,6 +263,50 @@ class DashboardManager {
     try {
       app.showNotification('Preparing your sheet downloads...', 'info');
       
+      // First, let's test authentication
+      console.log('🔧 TESTING: Checking authentication first...');
+      try {
+        const authTest = await app.apiCall('/games/auth-test');
+        console.log('✅ AUTH TEST RESULT:', authTest);
+      } catch (authError) {
+        console.log('❌ AUTH TEST FAILED:', authError);
+        app.showNotification('❌ Authentication failed. Please log in again.', 'error');
+        return;
+      }
+
+      // Now let's debug the download issue
+      console.log('🔧 TESTING: Running download debug...');
+      try {
+        const debugResponse = await app.apiCall(`/games/${gameId}/debug-download`);
+        console.log('🔍 DEBUG RESPONSE:', debugResponse);
+        
+        // Show user-friendly debug info
+        const debugInfo = `
+DEBUG INFO:
+- User ID: ${debugResponse.auth?.userId || 'Missing'}
+- Game Found: ${debugResponse.game ? 'Yes' : 'No'}
+- Participations: ${debugResponse.participations?.length || 0}
+- Approved: ${debugResponse.participations?.filter(p => p.status === 'approved').length || 0}
+- Pending: ${debugResponse.participations?.filter(p => p.status === 'pending').length || 0}
+        `;
+        console.log(debugInfo);
+        
+        // If no approved participations, show specific message
+        const approvedCount = debugResponse.participations?.filter(p => p.status === 'approved').length || 0;
+        if (approvedCount === 0) {
+          const pendingCount = debugResponse.participations?.filter(p => p.status === 'pending').length || 0;
+          if (pendingCount > 0) {
+            app.showNotification('⏳ Your payment is pending organiser approval. Please wait for approval before downloading.', 'warning');
+          } else {
+            app.showNotification('❌ You need to register and get approved for this game first.', 'error');
+          }
+          return;
+        }
+      } catch (debugError) {
+        console.log('❌ DEBUG FAILED:', debugError);
+      }
+
+      // Now try the actual download
       const response = await app.apiCall(`/games/${gameId}/download-sheets`);
       
       console.log('📥 DOWNLOAD RESPONSE:', response);
@@ -285,10 +329,22 @@ class DashboardManager {
       
     } catch (error) {
       console.error('Download error:', error);
+      
+      // Show detailed error information
+      const errorDetails = `
+ERROR DETAILS:
+- Message: ${error.message}
+- Status: ${error.status || 'Unknown'}
+- Response: ${JSON.stringify(error.response || 'No response')}
+      `;
+      console.log(errorDetails);
+      
       if (error.message.includes('not approved')) {
         app.showNotification('⏳ Your payment is pending organiser approval', 'warning');
       } else if (error.message.includes('not registered')) {
         app.showNotification('❌ Please register for this game first', 'error');
+      } else if (error.status === 403) {
+        app.showNotification('🚫 Access denied. Check console for details.', 'error');
       } else {
         app.showNotification(error.message || 'Failed to prepare downloads', 'error');
       }

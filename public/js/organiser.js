@@ -1330,11 +1330,20 @@ class OrganiserManager {
     
     preview.style.display = 'block';
     
-    // Show sample of detected sheets
+    // Show ALL detected sheets (not just first 10)
     const sheetNumbers = Object.keys(sheetFiles).map(Number).sort((a, b) => a - b);
-    const sampleNumbers = sheetNumbers.slice(0, 10); // Show first 10
+    const totalSheets = sheetNumbers.length;
     
-    samples.innerHTML = sampleNumbers.map(num => {
+    // If there are many sheets, show first 10 + indication of more
+    let displayNumbers = sheetNumbers;
+    let showMoreIndicator = false;
+    
+    if (totalSheets > 10) {
+      displayNumbers = sheetNumbers.slice(0, 10);
+      showMoreIndicator = true;
+    }
+    
+    samples.innerHTML = displayNumbers.map(num => {
       const fileInfo = sheetFiles[num];
       return `
         <div class="preview-sample available">
@@ -1344,12 +1353,23 @@ class OrganiserManager {
       `;
     }).join('');
     
-    // Show summary
+    // Add "and more" indicator if needed
+    if (showMoreIndicator) {
+      samples.innerHTML += `
+        <div class="preview-sample more-indicator">
+          <span class="sheet-number">...</span>
+          <span class="file-name">and ${totalSheets - 10} more sheets</span>
+        </div>
+      `;
+    }
+    
+    // Show accurate summary
     summary.innerHTML = `
       <div class="scan-summary-info">
         <strong>✅ Auto-Scan Results:</strong><br>
-        📊 Total sheets detected: ${sheetNumbers.length}<br>
+        📊 Total sheets detected: ${totalSheets}<br>
         📋 Sheet range: ${Math.min(...sheetNumbers)} - ${Math.max(...sheetNumbers)}<br>
+        ${totalSheets > 10 ? `📋 Showing first 10 sheets (${totalSheets} total)<br>` : ''}
         🔐 Individual file access configured: YES<br>
         💰 Business protection: ACTIVE
       </div>

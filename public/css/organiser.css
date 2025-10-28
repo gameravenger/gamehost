@@ -376,6 +376,13 @@ input[type="time"]:focus {
   background: rgba(40, 167, 69, 0.1);
 }
 
+.preview-sample.more-indicator {
+  border-color: #6c757d;
+  background: rgba(108, 117, 125, 0.1);
+  font-style: italic;
+  color: #6c757d;
+}
+
 .scan-summary-info {
   background: rgba(40, 167, 69, 0.1);
   border: 1px solid #28a745;

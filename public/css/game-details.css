@@ -752,6 +752,31 @@
   animation: fadeInScale 0.3s ease-out;
 }
 
+/* Force sheet status colors - highest specificity */
+.sheet-grid .sheet-number.sold {
+  background-color: #e0e0e0 !important;
+  border-color: #bbb !important;
+  color: #999 !important;
+  cursor: not-allowed !important;
+  opacity: 0.6 !important;
+  pointer-events: none !important;
+}
+
+.sheet-grid .sheet-number.reserved {
+  background-color: #fff3cd !important;
+  border-color: #ffeaa7 !important;
+  color: #856404 !important;
+  cursor: not-allowed !important;
+  opacity: 0.8 !important;
+  pointer-events: none !important;
+}
+
+.sheet-grid .sheet-number.selected {
+  background-color: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+  color: white !important;
+}
+
 @keyframes fadeInScale {
   from {
     opacity: 0;

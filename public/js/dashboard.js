@@ -258,35 +258,40 @@ class DashboardManager {
     `;
   }
 
-  // New method to download all sheets for a game (handles multiple participations)
+  // New method to download all sheets for a game (handles multiple participations) - FIXED
   async downloadAllGameSheets(gameId) {
     try {
       app.showNotification('Preparing your sheet downloads...', 'info');
       
       const response = await app.apiCall(`/games/${gameId}/download-sheets`);
       
-      if (response.participations && response.participations.length > 0) {
-        // Collect all sheets from all participations
-        const allSheets = [];
-        for (const participation of response.participations) {
-          for (const sheetNumber of participation.sheets) {
-            const fileName = `Sheet_${sheetNumber}.pdf`;
-            allSheets.push({
-              sheetNumber: sheetNumber,
-              fileName: fileName,
-              downloadUrl: participation.downloadUrl,
-              participationId: participation.id
-            });
-          }
+      console.log('📥 DOWNLOAD RESPONSE:', response);
+      
+      if (response.success && response.sheets && response.sheets.length > 0) {
+        console.log(`✅ DOWNLOAD: Found ${response.sheets.length} sheets to download`);
+        this.showDownloadModal(response.sheets, response.totalSheets);
+      } else if (response.error) {
+        // Handle specific error codes
+        if (response.code === 'NOT_REGISTERED') {
+          app.showNotification('❌ You are not registered for this game. Please register first.', 'error');
+        } else if (response.code === 'NOT_APPROVED') {
+          app.showNotification('⏳ Your payment is pending approval by the organiser. Please wait.', 'warning');
+        } else {
+          app.showNotification(response.error, 'error');
         }
-        
-        this.showDownloadModal(allSheets, allSheets.length);
       } else {
         app.showNotification('No sheets available for download', 'error');
       }
       
     } catch (error) {
-      app.showNotification(error.message || 'Failed to prepare downloads', 'error');
+      console.error('Download error:', error);
+      if (error.message.includes('not approved')) {
+        app.showNotification('⏳ Your payment is pending organiser approval', 'warning');
+      } else if (error.message.includes('not registered')) {
+        app.showNotification('❌ Please register for this game first', 'error');
+      } else {
+        app.showNotification(error.message || 'Failed to prepare downloads', 'error');
+      }
     }
   }
 

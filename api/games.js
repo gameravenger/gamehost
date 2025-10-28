@@ -208,21 +208,26 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// Get sold/reserved sheets for a game (includes pending and approved)
+// Get sold/reserved sheets for a game (includes pending and approved) - FIXED
 router.get('/:id/sold-sheets', async (req, res) => {
   try {
     const { id: gameId } = req.params;
     
+    console.log(`🔍 SOLD SHEETS API: Getting sheet status for game ${gameId}`);
+    
     // Get all participations for this game (pending and approved, but not rejected)
-    const { data: participations, error } = await supabase
+    const { data: participations, error } = await supabaseAdmin
       .from('game_participants')
-      .select('selected_sheet_numbers, payment_status')
+      .select('selected_sheet_numbers, payment_status, user_id')
       .eq('game_id', gameId)
       .in('payment_status', ['pending', 'approved']); // Include both pending and approved
 
     if (error) {
+      console.log(`❌ SOLD SHEETS ERROR:`, error.message);
       return res.status(400).json({ error: error.message });
     }
+
+    console.log(`📊 SOLD SHEETS: Found ${participations?.length || 0} participations`);
 
     // Collect all reserved/sold sheet numbers
     const reservedSheets = [];
@@ -230,27 +235,39 @@ router.get('/:id/sold-sheets', async (req, res) => {
     
     if (participations && participations.length > 0) {
       participations.forEach(participation => {
-        if (participation.selected_sheet_numbers) {
+        if (participation.selected_sheet_numbers && Array.isArray(participation.selected_sheet_numbers)) {
+          const sheets = participation.selected_sheet_numbers.map(s => parseInt(s));
           if (participation.payment_status === 'approved') {
-            approvedSheets.push(...participation.selected_sheet_numbers);
+            approvedSheets.push(...sheets);
           } else if (participation.payment_status === 'pending') {
-            reservedSheets.push(...participation.selected_sheet_numbers);
+            reservedSheets.push(...sheets);
           }
         }
       });
     }
 
-    // Combine all unavailable sheets (both reserved and sold)
-    const allUnavailableSheets = [...reservedSheets, ...approvedSheets];
+    // Remove duplicates and sort
+    const uniqueApprovedSheets = [...new Set(approvedSheets)].sort((a, b) => a - b);
+    const uniqueReservedSheets = [...new Set(reservedSheets)].sort((a, b) => a - b);
+    const allUnavailableSheets = [...uniqueApprovedSheets, ...uniqueReservedSheets];
     const uniqueUnavailableSheets = [...new Set(allUnavailableSheets)].sort((a, b) => a - b);
 
+    console.log(`✅ SOLD SHEETS RESULT:`, {
+      totalUnavailable: uniqueUnavailableSheets.length,
+      approved: uniqueApprovedSheets.length,
+      reserved: uniqueReservedSheets.length,
+      approvedSheets: uniqueApprovedSheets.slice(0, 10),
+      reservedSheets: uniqueReservedSheets.slice(0, 10)
+    });
+
     res.json({ 
+      success: true,
       soldSheets: uniqueUnavailableSheets, // All unavailable sheets
-      approvedSheets: [...new Set(approvedSheets)].sort((a, b) => a - b), // Only approved/sold
-      reservedSheets: [...new Set(reservedSheets)].sort((a, b) => a - b) // Only pending/reserved
+      approvedSheets: uniqueApprovedSheets, // Only approved/sold
+      reservedSheets: uniqueReservedSheets // Only pending/reserved
     });
   } catch (error) {
-    console.error('Error fetching sold sheets:', error);
+    console.error('❌ Error fetching sold sheets:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -398,49 +415,53 @@ router.get('/user/participations', authenticateToken, async (req, res) => {
   }
 });
 
-// Download sheets (only for approved participants)
+// Download sheets (only for approved participants) - FIXED VERSION
 router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
   try {
     const { id: gameId } = req.params;
     const userId = req.user.userId;
 
-    // Get ALL approved participations for this user and game
-    console.log(`🔍 DOWNLOAD DEBUG: Checking participations for user ${userId}, game ${gameId}`);
+    console.log(`🔍 DOWNLOAD: User ${userId} requesting sheets for game ${gameId}`);
     
-    const { data: participations, error } = await supabaseAdmin
+    // First, get ALL participations for this user and game to understand the situation
+    const { data: allParticipations, error: allError } = await supabaseAdmin
       .from('game_participants')
       .select('*')
       .eq('game_id', gameId)
-      .eq('user_id', userId)
-      .eq('payment_status', 'approved');
+      .eq('user_id', userId);
 
-    console.log(`📊 DOWNLOAD DEBUG: Found ${participations?.length || 0} approved participations`);
-    console.log(`❌ DOWNLOAD DEBUG: Error:`, error);
-    
-    if (error) {
-      console.log(`💥 DOWNLOAD ERROR: Database error:`, error.message);
-      return res.status(500).json({ error: `Database error: ${error.message}` });
+    if (allError) {
+      console.log(`💥 DOWNLOAD ERROR: Database error:`, allError.message);
+      return res.status(500).json({ error: `Database error: ${allError.message}` });
     }
+
+    console.log(`📊 DOWNLOAD: Found ${allParticipations?.length || 0} total participations for user`);
     
-    if (!participations || participations.length === 0) {
-      console.log(`🚫 DOWNLOAD DENIED: No approved participations found for user ${userId}, game ${gameId}`);
+    if (!allParticipations || allParticipations.length === 0) {
+      console.log(`🚫 DOWNLOAD DENIED: User ${userId} has no participations for game ${gameId}`);
+      return res.status(403).json({ 
+        error: 'You are not registered for this game. Please register first.',
+        code: 'NOT_REGISTERED'
+      });
+    }
+
+    // Filter for approved participations
+    const approvedParticipations = allParticipations.filter(p => p.payment_status === 'approved');
+    console.log(`✅ DOWNLOAD: Found ${approvedParticipations.length} approved participations`);
+    
+    if (approvedParticipations.length === 0) {
+      const pendingCount = allParticipations.filter(p => p.payment_status === 'pending').length;
+      const rejectedCount = allParticipations.filter(p => p.payment_status === 'rejected').length;
       
-      // Let's also check what participations exist for debugging
-      const { data: allParticipations } = await supabaseAdmin
-        .from('game_participants')
-        .select('payment_status, created_at')
-        .eq('game_id', gameId)
-        .eq('user_id', userId);
-        
-      console.log(`📋 DOWNLOAD DEBUG: All user participations:`, allParticipations);
+      console.log(`⏳ DOWNLOAD DENIED: No approved participations. Pending: ${pendingCount}, Rejected: ${rejectedCount}`);
       
       return res.status(403).json({ 
-        error: 'You are not approved for this game or not registered',
-        debug: {
-          userId,
-          gameId,
-          foundParticipations: allParticipations?.length || 0,
-          participationStatuses: allParticipations?.map(p => p.payment_status) || []
+        error: 'Your payment is not yet approved by the organiser. Please wait for approval.',
+        code: 'NOT_APPROVED',
+        details: {
+          pending: pendingCount,
+          rejected: rejectedCount,
+          total: allParticipations.length
         }
       });
     }
@@ -448,36 +469,49 @@ router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
     // Get game details with sheets folder
     const { data: game } = await supabaseAdmin
       .from('games')
-      .select('sheets_folder_id, name')
+      .select('sheets_folder_id, name, sheet_file_format')
       .eq('id', gameId)
       .single();
 
     if (!game || !game.sheets_folder_id) {
-      return res.status(404).json({ error: 'Game sheets not available' });
+      console.log(`❌ DOWNLOAD ERROR: Game ${gameId} has no sheets folder configured`);
+      return res.status(404).json({ error: 'Game sheets not available. Contact the organiser.' });
     }
 
-    // Mark all participations as downloaded
-    const participationIds = participations.map(p => p.id);
-    await supabaseAdmin
-      .from('game_participants')
-      .update({ sheets_downloaded: true })
-      .in('id', participationIds);
+    console.log(`🎮 DOWNLOAD: Game ${game.name} has sheets folder configured`);
 
-    // Collect all sheet numbers from all participations
+    // Collect all sheet numbers from all approved participations
     const allSheetNumbers = [];
-    participations.forEach(participation => {
+    const sheetsData = [];
+    
+    approvedParticipations.forEach(participation => {
       if (participation.selected_sheet_numbers) {
-        allSheetNumbers.push(...participation.selected_sheet_numbers);
+        participation.selected_sheet_numbers.forEach(sheetNum => {
+          if (!allSheetNumbers.includes(sheetNum)) {
+            allSheetNumbers.push(sheetNum);
+            const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', sheetNum);
+            sheetsData.push({
+              sheetNumber: sheetNum,
+              fileName: fileName,
+              downloadUrl: `/api/games/sheets/secure-download/${participation.id}/${sheetNum}`,
+              participationId: participation.id
+            });
+          }
+        });
       }
     });
 
-    // Return sheet download information
+    console.log(`📄 DOWNLOAD: Prepared ${sheetsData.length} sheets for download: ${allSheetNumbers.join(', ')}`);
+
+    // Return comprehensive sheet download information
     res.json({
-      message: 'Sheets ready for download',
-      sheetNumbers: allSheetNumbers,
+      success: true,
+      message: `${sheetsData.length} sheets ready for secure download`,
+      sheets: sheetsData,
+      totalSheets: sheetsData.length,
       gameId: gameId,
       gameName: game.name,
-      participations: participations.map(p => ({
+      participations: approvedParticipations.map(p => ({
         id: p.id,
         sheets: p.selected_sheet_numbers,
         downloadUrl: `/api/games/${gameId}/sheets/${p.id}`

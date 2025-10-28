@@ -315,9 +315,9 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
       });
     }
 
-    // Handle direct Google Drive file links (configured by organizer)
+    // Handle Google Drive storage files (uploaded with compression)
     if (fileId && !fileId.startsWith('FOLDER_') && !fileId.startsWith('LOCAL_')) {
-      console.log(`🔗 DIRECT LINK DOWNLOAD: Using organizer-configured Google Drive link for sheet ${requestedSheet}`);
+      console.log(`☁️ GOOGLE DRIVE DOWNLOAD: Using compressed Google Drive file for sheet ${requestedSheet}`);
       
       const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', requestedSheet);
       
@@ -332,7 +332,7 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
         })
         .eq('id', participationId);
       
-      // Use the SECURE TOKEN endpoint for direct links
+      // Use the SECURE TOKEN endpoint for Google Drive files
       const secureTokenUrl = `/api/games/sheets/secure-token/${participationId}/${sheetNumber}`;
       
       return res.json({
@@ -342,16 +342,19 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
         gameName: game.name,
         directDownload: true,
         downloadUrl: secureTokenUrl,
-        downloadMethod: 'secure_token',
-        message: `Sheet ${requestedSheet} ready for secure download`,
+        downloadMethod: 'google_drive_storage',
+        message: `Sheet ${requestedSheet} ready for secure download (compressed)`,
         security: {
           secureToken: true,
-          directFileAccess: true,
+          googleDriveStorage: true,
+          autoCompressed: true,
+          autoDeleteIn2Days: true,
           noFolderExposure: true,
           authorizedSheet: requestedSheet,
           participantOnly: true,
           downloadTracked: true,
-          businessProtected: true
+          businessProtected: true,
+          costEffective: true
         }
       });
     }

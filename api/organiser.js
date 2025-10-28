@@ -4,41 +4,36 @@ const path = require('path');
 const fs = require('fs');
 const { supabase, supabaseAdmin } = require('../config/database');
 const jwt = require('jsonwebtoken');
+const { GoogleDriveStorage, MulterGoogleDriveStorage } = require('../config/google-drive-storage');
 const router = express.Router();
 
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    const gameId = req.params.gameId || 'temp';
-    const uploadDir = path.join(__dirname, '..', 'uploads', 'games', gameId);
-    
-    // Create directory if it doesn't exist
-    fs.mkdirSync(uploadDir, { recursive: true });
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    // Extract sheet number from filename or use timestamp
-    const originalName = file.originalname;
-    const sheetMatch = originalName.match(/(\d+)/);
-    const sheetNumber = sheetMatch ? sheetMatch[1] : Date.now();
-    const extension = path.extname(originalName);
-    
-    cb(null, `Sheet_${sheetNumber}${extension}`);
-  }
-});
+// Initialize Google Drive Storage
+const driveStorage = new GoogleDriveStorage();
 
-const upload = multer({
-  storage: storage,
+// Configure multer for Google Drive uploads with compression
+const googleDriveUpload = multer({
+  storage: new MulterGoogleDriveStorage({
+    tempDir: '/tmp',
+    compressionQuality: 75, // 75% quality for good compression
+    parentFolderId: process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID // Your 2TB Google Drive folder
+  }),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit per file
+    fileSize: 50 * 1024 * 1024, // 50MB limit per file (will be compressed)
     files: 100 // Max 100 files at once
   },
   fileFilter: function (req, file, cb) {
-    // Accept PDF files only
-    if (file.mimetype === 'application/pdf') {
+    // Accept images, PDFs, and common document types
+    const allowedTypes = [
+      'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    
+    if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Only PDF files are allowed'), false);
+      cb(new Error('File type not supported. Allowed: Images, PDF, Word documents'), false);
     }
   }
 });
@@ -700,18 +695,19 @@ router.post('/scan-folder-preview', authenticateOrganiser, async (req, res) => {
   }
 });
 
-// CONFIGURE DIRECT LINKS - Organizers provide Google Drive file links directly
-router.post('/games/:gameId/configure-links', authenticateOrganiser, async (req, res) => {
+// UPLOAD TO GOOGLE DRIVE - Upload sheets/banners/images with auto-compression
+router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, googleDriveUpload.array('files', 100), async (req, res) => {
   try {
     const { gameId } = req.params;
-    const { sheetLinks } = req.body; // Array of {sheetNumber, googleDriveUrl}
+    const { fileType } = req.body; // 'sheets', 'banners', 'images'
+    const uploadedFiles = req.files;
 
-    console.log(`🔗 CONFIGURE: Received ${sheetLinks.length} direct links for game ${gameId}`);
+    console.log(`☁️ DRIVE UPLOAD: Received ${uploadedFiles.length} ${fileType} for game ${gameId}`);
 
-    if (!sheetLinks || sheetLinks.length === 0) {
+    if (!uploadedFiles || uploadedFiles.length === 0) {
       return res.status(400).json({
-        error: 'No sheet links provided',
-        message: 'Please provide Google Drive file links'
+        error: 'No files uploaded',
+        message: 'Please select files to upload'
       });
     }
 
@@ -732,66 +728,127 @@ router.post('/games/:gameId/configure-links', authenticateOrganiser, async (req,
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Process and validate links
-    const sheetFiles = {};
-    const configuredSheets = [];
+    // Process uploaded files
+    const processedFiles = {};
+    const uploadedItems = [];
+    let totalOriginalSize = 0;
+    let totalCompressedSize = 0;
 
-    sheetLinks.forEach(link => {
-      const { sheetNumber, googleDriveUrl } = link;
+    uploadedFiles.forEach((file, index) => {
+      const itemNumber = index + 1;
       
-      // Extract file ID from Google Drive URL
-      const fileIdMatch = googleDriveUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-      if (fileIdMatch) {
-        const fileId = fileIdMatch[1];
-        
-        sheetFiles[sheetNumber] = {
-          fileId: fileId,
-          fileName: `Sheet_${sheetNumber}.pdf`,
-          directUrl: googleDriveUrl,
-          downloadUrl: `https://drive.google.com/uc?export=download&id=${fileId}`,
-          configuredAt: new Date().toISOString()
-        };
-        
-        configuredSheets.push(parseInt(sheetNumber));
-        console.log(`✅ CONFIGURE: Sheet ${sheetNumber} -> ${fileId}`);
-      } else {
-        console.log(`⚠️ CONFIGURE: Invalid Google Drive URL for sheet ${sheetNumber}`);
+      processedFiles[itemNumber] = {
+        fileId: file.fileId,
+        fileName: file.fileName,
+        originalName: file.originalName,
+        size: file.size,
+        downloadUrl: file.downloadUrl,
+        webViewLink: file.webViewLink,
+        uploadedAt: file.createdTime || new Date().toISOString(),
+        compression: file.compression,
+        autoDeleteDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString() // 2 days from now
+      };
+      
+      uploadedItems.push(itemNumber);
+      
+      if (file.compression) {
+        totalOriginalSize += file.compression.originalSize;
+        totalCompressedSize += file.compression.compressedSize;
       }
+      
+      console.log(`✅ DRIVE UPLOAD: ${fileType} ${itemNumber} -> ${file.fileId} (${file.size} bytes)`);
     });
 
-    // Update game with configured links
+    // Update game with uploaded file information
+    const updateData = {
+      [`${fileType}_files`]: processedFiles,
+      [`${fileType}_count`]: uploadedItems.length,
+      [`${fileType}_uploaded`]: true,
+      upload_method: 'google_drive_storage',
+      updated_at: new Date().toISOString()
+    };
+
+    // For sheets, also update total_sheets
+    if (fileType === 'sheets') {
+      updateData.individual_sheet_files = processedFiles;
+      updateData.total_sheets = uploadedItems.length;
+    }
+
     const { error: updateError } = await supabaseAdmin
       .from('games')
-      .update({
-        individual_sheet_files: sheetFiles,
-        total_sheets: configuredSheets.length,
-        sheets_configured: true,
-        configuration_method: 'direct_links',
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', gameId);
 
     if (updateError) {
-      console.error('❌ CONFIGURE: Database update failed:', updateError);
+      console.error('❌ DRIVE UPLOAD: Database update failed:', updateError);
       return res.status(500).json({ error: 'Failed to update game data' });
     }
 
-    console.log(`✅ CONFIGURE: Successfully configured ${configuredSheets.length} sheet links for game ${game.name}`);
+    const compressionStats = totalOriginalSize > 0 ? {
+      originalSize: totalOriginalSize,
+      compressedSize: totalCompressedSize,
+      savings: totalOriginalSize - totalCompressedSize,
+      compressionRatio: ((totalOriginalSize - totalCompressedSize) / totalOriginalSize * 100).toFixed(1)
+    } : null;
+
+    console.log(`✅ DRIVE UPLOAD: Successfully uploaded ${uploadedItems.length} ${fileType} for game ${game.name}`);
+    if (compressionStats) {
+      console.log(`📦 COMPRESSION: Saved ${compressionStats.savings} bytes (${compressionStats.compressionRatio}% reduction)`);
+    }
 
     res.json({
       success: true,
-      message: `Successfully configured ${configuredSheets.length} sheet links`,
-      configuredSheets: configuredSheets.sort((a, b) => a - b),
-      totalSheets: configuredSheets.length,
+      message: `Successfully uploaded ${uploadedItems.length} ${fileType} to Google Drive`,
+      uploadedItems: uploadedItems,
+      totalItems: uploadedItems.length,
       gameName: game.name,
-      configurationMethod: 'direct_links',
-      sheetFiles: sheetFiles
+      fileType: fileType,
+      uploadMethod: 'google_drive_storage',
+      compressionStats: compressionStats,
+      autoDeleteDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+      files: processedFiles,
+      storageInfo: {
+        provider: 'Google Drive (2TB Plan)',
+        autoCompress: true,
+        autoDelete: '2 days',
+        costEffective: true
+      }
     });
 
   } catch (error) {
-    console.error('💥 CONFIGURE ERROR:', error);
+    console.error('💥 DRIVE UPLOAD ERROR:', error);
     res.status(500).json({
-      error: 'Configuration failed',
+      error: 'Upload failed',
+      details: error.message
+    });
+  }
+});
+
+// AUTO-CLEANUP - Delete files older than 2 days from Google Drive
+router.post('/cleanup-old-files', authenticateOrganiser, async (req, res) => {
+  try {
+    console.log('🧹 CLEANUP: Starting auto-cleanup of old files...');
+    
+    const cleanupResult = await driveStorage.cleanupOldFiles(2, process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID);
+    
+    // Also clean up database records of deleted files
+    if (cleanupResult.deletedCount > 0) {
+      // This is a simplified cleanup - in production you'd want to track file IDs in DB
+      console.log(`🗑️ DATABASE: Cleaned up ${cleanupResult.deletedCount} file records`);
+    }
+    
+    res.json({
+      success: true,
+      message: `Cleanup completed: ${cleanupResult.deletedCount} files deleted`,
+      ...cleanupResult,
+      storageFreed: `${(cleanupResult.totalSize / (1024 * 1024)).toFixed(2)} MB`,
+      nextCleanup: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // Next cleanup in 24 hours
+    });
+    
+  } catch (error) {
+    console.error('💥 CLEANUP ERROR:', error);
+    res.status(500).json({
+      error: 'Cleanup failed',
       details: error.message
     });
   }

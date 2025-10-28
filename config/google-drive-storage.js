@@ -1,0 +1,331 @@
+const { google } = require('googleapis');
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
+const multer = require('multer');
+
+class GoogleDriveStorage {
+  constructor() {
+    this.drive = null;
+    this.auth = null;
+    this.initializeAuth();
+  }
+
+  async initializeAuth() {
+    try {
+      // Initialize Google Drive API with service account or OAuth2
+      this.auth = new google.auth.GoogleAuth({
+        keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_KEY, // Path to service account JSON
+        scopes: ['https://www.googleapis.com/auth/drive']
+      });
+
+      this.drive = google.drive({ version: 'v3', auth: this.auth });
+      console.log('✅ Google Drive Storage initialized successfully');
+    } catch (error) {
+      console.error('❌ Google Drive Storage initialization failed:', error);
+    }
+  }
+
+  // Compress image files
+  async compressImage(inputPath, outputPath, quality = 80) {
+    try {
+      const stats = fs.statSync(inputPath);
+      const originalSize = stats.size;
+
+      await sharp(inputPath)
+        .jpeg({ quality: quality, progressive: true })
+        .png({ compressionLevel: 9, progressive: true })
+        .webp({ quality: quality })
+        .toFile(outputPath);
+
+      const compressedStats = fs.statSync(outputPath);
+      const compressedSize = compressedStats.size;
+      const compressionRatio = ((originalSize - compressedSize) / originalSize * 100).toFixed(1);
+
+      console.log(`📦 COMPRESSION: ${path.basename(inputPath)} - ${originalSize} → ${compressedSize} bytes (${compressionRatio}% reduction)`);
+      
+      return {
+        originalSize,
+        compressedSize,
+        compressionRatio: parseFloat(compressionRatio),
+        outputPath
+      };
+    } catch (error) {
+      console.error('❌ Image compression failed:', error);
+      throw error;
+    }
+  }
+
+  // Compress PDF files (basic optimization)
+  async compressPDF(inputPath, outputPath) {
+    try {
+      // For now, just copy the file (PDF compression requires more complex libraries)
+      // In production, you might want to use pdf-lib or similar
+      fs.copyFileSync(inputPath, outputPath);
+      
+      const stats = fs.statSync(inputPath);
+      console.log(`📄 PDF: ${path.basename(inputPath)} - ${stats.size} bytes (no compression applied)`);
+      
+      return {
+        originalSize: stats.size,
+        compressedSize: stats.size,
+        compressionRatio: 0,
+        outputPath
+      };
+    } catch (error) {
+      console.error('❌ PDF processing failed:', error);
+      throw error;
+    }
+  }
+
+  // Upload file to Google Drive
+  async uploadFile(filePath, fileName, parentFolderId = null, mimeType = null) {
+    try {
+      if (!this.drive) {
+        throw new Error('Google Drive not initialized');
+      }
+
+      const fileMetadata = {
+        name: fileName,
+        parents: parentFolderId ? [parentFolderId] : undefined
+      };
+
+      const media = {
+        mimeType: mimeType || 'application/octet-stream',
+        body: fs.createReadStream(filePath)
+      };
+
+      console.log(`☁️ UPLOADING: ${fileName} to Google Drive...`);
+
+      const response = await this.drive.files.create({
+        resource: fileMetadata,
+        media: media,
+        fields: 'id, name, size, createdTime, webViewLink, webContentLink'
+      });
+
+      // Make file publicly accessible
+      await this.drive.permissions.create({
+        fileId: response.data.id,
+        resource: {
+          role: 'reader',
+          type: 'anyone'
+        }
+      });
+
+      console.log(`✅ UPLOADED: ${fileName} - ID: ${response.data.id}`);
+
+      return {
+        fileId: response.data.id,
+        fileName: response.data.name,
+        size: response.data.size,
+        createdTime: response.data.createdTime,
+        webViewLink: response.data.webViewLink,
+        webContentLink: response.data.webContentLink,
+        downloadUrl: `https://drive.google.com/uc?export=download&id=${response.data.id}`
+      };
+
+    } catch (error) {
+      console.error('❌ Google Drive upload failed:', error);
+      throw error;
+    }
+  }
+
+  // Delete file from Google Drive
+  async deleteFile(fileId) {
+    try {
+      if (!this.drive) {
+        throw new Error('Google Drive not initialized');
+      }
+
+      await this.drive.files.delete({
+        fileId: fileId
+      });
+
+      console.log(`🗑️ DELETED: File ${fileId} from Google Drive`);
+      return true;
+
+    } catch (error) {
+      console.error('❌ Google Drive deletion failed:', error);
+      throw error;
+    }
+  }
+
+  // Create folder in Google Drive
+  async createFolder(folderName, parentFolderId = null) {
+    try {
+      if (!this.drive) {
+        throw new Error('Google Drive not initialized');
+      }
+
+      const fileMetadata = {
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder',
+        parents: parentFolderId ? [parentFolderId] : undefined
+      };
+
+      const response = await this.drive.files.create({
+        resource: fileMetadata,
+        fields: 'id, name'
+      });
+
+      console.log(`📁 CREATED FOLDER: ${folderName} - ID: ${response.data.id}`);
+      return response.data.id;
+
+    } catch (error) {
+      console.error('❌ Folder creation failed:', error);
+      throw error;
+    }
+  }
+
+  // Get files older than specified days
+  async getOldFiles(daysOld = 2, folderId = null) {
+    try {
+      if (!this.drive) {
+        throw new Error('Google Drive not initialized');
+      }
+
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysOld);
+      const cutoffISO = cutoffDate.toISOString();
+
+      let query = `createdTime < '${cutoffISO}' and trashed = false`;
+      if (folderId) {
+        query += ` and '${folderId}' in parents`;
+      }
+
+      const response = await this.drive.files.list({
+        q: query,
+        fields: 'files(id, name, createdTime, size)',
+        pageSize: 1000
+      });
+
+      return response.data.files || [];
+
+    } catch (error) {
+      console.error('❌ Failed to get old files:', error);
+      throw error;
+    }
+  }
+
+  // Clean up old files (auto-delete after 2 days)
+  async cleanupOldFiles(daysOld = 2, folderId = null) {
+    try {
+      const oldFiles = await this.getOldFiles(daysOld, folderId);
+      
+      if (oldFiles.length === 0) {
+        console.log('🧹 CLEANUP: No old files to delete');
+        return { deletedCount: 0, totalSize: 0 };
+      }
+
+      let deletedCount = 0;
+      let totalSize = 0;
+
+      console.log(`🧹 CLEANUP: Found ${oldFiles.length} files older than ${daysOld} days`);
+
+      for (const file of oldFiles) {
+        try {
+          await this.deleteFile(file.id);
+          deletedCount++;
+          totalSize += parseInt(file.size || 0);
+          console.log(`🗑️ DELETED: ${file.name} (${file.size} bytes)`);
+        } catch (error) {
+          console.error(`❌ Failed to delete ${file.name}:`, error.message);
+        }
+      }
+
+      console.log(`✅ CLEANUP COMPLETE: Deleted ${deletedCount}/${oldFiles.length} files (${totalSize} bytes freed)`);
+
+      return {
+        deletedCount,
+        totalFiles: oldFiles.length,
+        totalSize,
+        errors: oldFiles.length - deletedCount
+      };
+
+    } catch (error) {
+      console.error('❌ Cleanup failed:', error);
+      throw error;
+    }
+  }
+}
+
+// Multer storage engine for Google Drive
+class MulterGoogleDriveStorage {
+  constructor(options = {}) {
+    this.driveStorage = new GoogleDriveStorage();
+    this.tempDir = options.tempDir || '/tmp';
+    this.compressionQuality = options.compressionQuality || 80;
+    this.parentFolderId = options.parentFolderId || null;
+  }
+
+  _handleFile(req, file, cb) {
+    const tempFilePath = path.join(this.tempDir, `temp_${Date.now()}_${file.originalname}`);
+    const compressedFilePath = path.join(this.tempDir, `compressed_${Date.now()}_${file.originalname}`);
+
+    const writeStream = fs.createWriteStream(tempFilePath);
+    file.stream.pipe(writeStream);
+
+    writeStream.on('error', cb);
+    writeStream.on('finish', async () => {
+      try {
+        let finalFilePath = tempFilePath;
+        let compressionInfo = null;
+
+        // Compress based on file type
+        if (file.mimetype.startsWith('image/')) {
+          compressionInfo = await this.driveStorage.compressImage(tempFilePath, compressedFilePath, this.compressionQuality);
+          finalFilePath = compressedFilePath;
+        } else if (file.mimetype === 'application/pdf') {
+          compressionInfo = await this.driveStorage.compressPDF(tempFilePath, compressedFilePath);
+          finalFilePath = compressedFilePath;
+        }
+
+        // Upload to Google Drive
+        const uploadResult = await this.driveStorage.uploadFile(
+          finalFilePath,
+          file.originalname,
+          this.parentFolderId,
+          file.mimetype
+        );
+
+        // Clean up temp files
+        fs.unlinkSync(tempFilePath);
+        if (finalFilePath !== tempFilePath) {
+          fs.unlinkSync(finalFilePath);
+        }
+
+        // Return file info
+        cb(null, {
+          ...uploadResult,
+          originalName: file.originalname,
+          mimetype: file.mimetype,
+          compression: compressionInfo
+        });
+
+      } catch (error) {
+        // Clean up temp files on error
+        try {
+          fs.unlinkSync(tempFilePath);
+          if (fs.existsSync(compressedFilePath)) {
+            fs.unlinkSync(compressedFilePath);
+          }
+        } catch (cleanupError) {
+          console.error('Cleanup error:', cleanupError);
+        }
+        cb(error);
+      }
+    });
+  }
+
+  _removeFile(req, file, cb) {
+    // File is already on Google Drive, so we just need to delete it from there
+    this.driveStorage.deleteFile(file.fileId)
+      .then(() => cb(null))
+      .catch(cb);
+  }
+}
+
+module.exports = {
+  GoogleDriveStorage,
+  MulterGoogleDriveStorage
+};

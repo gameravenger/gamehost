@@ -635,8 +635,8 @@ class OrganiserManager {
                 🔍 Auto-Scan
               </button>
             ` : ''}
-            <button class="btn btn-success btn-sm" onclick="organiserManager.configureLinks('${game.id}')" title="Configure direct download links">
-              🔗 Configure Links
+            <button class="btn btn-success btn-sm" onclick="organiserManager.uploadToDrive('${game.id}')" title="Upload files to Google Drive with compression">
+              ☁️ Upload to Drive
             </button>
             ${game.status === 'upcoming' ? `
               <button class="btn btn-success btn-sm" onclick="organiserManager.startGame('${game.id}')">
@@ -763,15 +763,16 @@ class OrganiserManager {
     document.querySelector('.modal-overlay')?.remove();
   }
 
-  // Configure direct links for sheets
-  configureLinks(gameId) {
+  // Upload to Google Drive with compression
+  uploadToDrive(gameId) {
     const game = this.games.find(g => g.id === gameId);
     if (!game) {
       app.showNotification('Game not found', 'error');
       return;
     }
 
-    this.showLinkConfigurationModal(gameId, game.name);
+    // Redirect to Google Drive upload page
+    window.location.href = `/upload-to-drive.html?gameId=${gameId}`;
   }
 
   // Show link configuration modal

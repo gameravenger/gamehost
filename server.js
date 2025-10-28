@@ -3,6 +3,9 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
+// Initialize cleanup scheduler for Google Drive storage
+const CleanupScheduler = require('./scripts/cleanup-scheduler');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -105,7 +108,20 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📱 Dashboard: http://localhost:${PORT}`);
+  console.log(`👥 Admin: http://localhost:${PORT}/admin.html`);
+  console.log(`🎮 Organiser: http://localhost:${PORT}/organiser.html`);
+  
+  // Initialize Google Drive cleanup scheduler
+  if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY && process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID) {
+    console.log('☁️ Initializing Google Drive storage cleanup scheduler...');
+    new CleanupScheduler();
+    console.log('✅ Google Drive auto-cleanup enabled (2-day retention)');
+  } else {
+    console.log('⚠️ Google Drive storage not configured - skipping cleanup scheduler');
+    console.log('📖 See GOOGLE_DRIVE_STORAGE_SETUP.md for setup instructions');
+  }
 });
 
 module.exports = app;

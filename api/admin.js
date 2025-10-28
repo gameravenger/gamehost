@@ -244,6 +244,66 @@ router.get('/games/top', authenticateAdmin, async (req, res) => {
   }
 });
 
+// Add game to featured games
+router.post('/featured-games', authenticateAdmin, async (req, res) => {
+  try {
+    const { gameId, order } = req.body;
+
+    if (!gameId) {
+      return res.status(400).json({ error: 'Game ID is required' });
+    }
+
+    const { data: game, error } = await supabaseAdmin
+      .from('games')
+      .update({
+        is_featured: true,
+        featured_order: order || 1
+      })
+      .eq('id', gameId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.status(201).json({ message: 'Game added to featured successfully', game });
+  } catch (error) {
+    console.error('Error adding game to featured:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Add game to top games
+router.post('/top-games', authenticateAdmin, async (req, res) => {
+  try {
+    const { gameId, order } = req.body;
+
+    if (!gameId) {
+      return res.status(400).json({ error: 'Game ID is required' });
+    }
+
+    const { data: game, error } = await supabaseAdmin
+      .from('games')
+      .update({
+        is_top_game: true,
+        top_game_order: order || 1
+      })
+      .eq('id', gameId)
+      .select()
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    res.status(201).json({ message: 'Game added to top games successfully', game });
+  } catch (error) {
+    console.error('Error adding game to top games:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Update game featured/top status
 router.put('/games/:id/promotion', authenticateAdmin, async (req, res) => {
   try {

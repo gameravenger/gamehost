@@ -103,6 +103,14 @@ class AdminManager {
       e.preventDefault();
       this.handleAddNews(e);
     });
+
+    // Tab switching for featured games
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const tabType = e.target.dataset.tab;
+        this.switchTab(tabType);
+      });
+    });
   }
 
   toggleSidebar() {
@@ -124,6 +132,27 @@ class AdminManager {
     
     sidebar.classList.remove('open');
     backdrop.classList.remove('active');
+  }
+
+  switchTab(tabType) {
+    // Update tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.remove('active');
+    });
+    document.querySelector(`[data-tab="${tabType}"]`).classList.add('active');
+
+    // Update tab content
+    document.querySelectorAll('.tab-content').forEach(content => {
+      content.classList.remove('active');
+    });
+    document.getElementById(`${tabType}-tab`).classList.add('active');
+
+    // Load appropriate data
+    if (tabType === 'featured') {
+      this.loadFeaturedGames();
+    } else if (tabType === 'top') {
+      this.loadTopGames();
+    }
   }
 
   switchSection(section) {
@@ -496,11 +525,11 @@ class AdminManager {
     try {
       const formData = new FormData(e.target);
       
-      await app.apiCall('/admin/sponsored-ads', 'POST', {
+      await app.apiCall('/admin/ads', 'POST', {
         title: formData.get('title'),
         bannerImageUrl: formData.get('bannerImageUrl'),
         linkUrl: formData.get('linkUrl'),
-        order: parseInt(formData.get('order')) || 1
+        displayOrder: parseInt(formData.get('displayOrder')) || 1
       });
 
       app.showNotification('Sponsored ad added successfully', 'success');
@@ -534,7 +563,7 @@ class AdminManager {
   // Load functions for the new content
   async loadFeaturedGames() {
     try {
-      const response = await app.apiCall('/admin/featured-games');
+      const response = await app.apiCall('/admin/games/featured');
       // Render featured games list
       const list = document.getElementById('featuredGamesList');
       if (list && response.games) {
@@ -552,7 +581,7 @@ class AdminManager {
 
   async loadTopGames() {
     try {
-      const response = await app.apiCall('/admin/top-games');
+      const response = await app.apiCall('/admin/games/top');
       // Render top games list
       const list = document.getElementById('topGamesList');
       if (list && response.games) {
@@ -570,16 +599,17 @@ class AdminManager {
 
   async loadSponsoredAds() {
     try {
-      const response = await app.apiCall('/admin/sponsored-ads');
+      const response = await app.apiCall('/admin/ads');
       // Render sponsored ads
       const grid = document.getElementById('adsGrid');
       if (grid && response.ads) {
         grid.innerHTML = response.ads.map(ad => `
           <div class="ad-item">
-            <img src="${ad.banner_image_url}" alt="${ad.title}" style="width: 100px; height: 60px; object-fit: cover;">
+            <img src="${ad.banner_image_url}" alt="${ad.title || 'Ad'}" style="width: 100px; height: 60px; object-fit: cover;">
             <div>
-              <h4>${ad.title}</h4>
-              <p>Order: ${ad.order}</p>
+              <h4>${ad.title || 'Untitled Ad'}</h4>
+              <p>Order: ${ad.display_order}</p>
+              <p><a href="${ad.link_url}" target="_blank">View Link</a></p>
             </div>
             <button class="btn btn-danger btn-xs" onclick="adminManager.removeAd('${ad.id}')">Remove</button>
           </div>
@@ -587,6 +617,21 @@ class AdminManager {
       }
     } catch (error) {
       console.error('Error loading sponsored ads:', error);
+    }
+  }
+
+  async removeAd(adId) {
+    try {
+      if (!confirm('Are you sure you want to remove this sponsored ad?')) {
+        return;
+      }
+
+      await app.apiCall(`/admin/ads/${adId}`, 'DELETE');
+      app.showNotification('Sponsored ad removed successfully', 'success');
+      this.loadSponsoredAds();
+      
+    } catch (error) {
+      app.showNotification(error.message || 'Failed to remove sponsored ad', 'error');
     }
   }
 
@@ -605,6 +650,45 @@ class AdminManager {
       }
     } catch (error) {
       console.error('Error loading news items:', error);
+    }
+  }
+
+  async removeNews(newsId) {
+    try {
+      if (!confirm('Are you sure you want to remove this news item?')) {
+        return;
+      }
+
+      await app.apiCall(`/admin/news-banners/${newsId}`, 'DELETE');
+      app.showNotification('News item removed successfully', 'success');
+      this.loadNews();
+      
+    } catch (error) {
+      app.showNotification(error.message || 'Failed to remove news item', 'error');
+    }
+  }
+
+  async removeFeatured(gameId, type) {
+    try {
+      if (!confirm(`Are you sure you want to remove this game from ${type} games?`)) {
+        return;
+      }
+
+      const updateData = type === 'featured' 
+        ? { is_featured: false, featured_order: null }
+        : { is_top_game: false, top_game_order: null };
+
+      await app.apiCall(`/admin/games/${gameId}/promotion`, 'PUT', updateData);
+      app.showNotification(`Game removed from ${type} successfully`, 'success');
+      
+      if (type === 'featured') {
+        this.loadFeaturedGames();
+      } else {
+        this.loadTopGames();
+      }
+      
+    } catch (error) {
+      app.showNotification(error.message || `Failed to remove game from ${type}`, 'error');
     }
   }
 }

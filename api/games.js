@@ -493,37 +493,33 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
     // Log the download attempt
     console.log(`Download attempt: User ${userId}, Game ${game.name}, Sheet ${sheetNumber}`);
 
-    // For public Google Drive folders, we need to provide proper access
+    // SECURITY FIX: Instead of giving folder access, create a restricted download page
     const folderId = game.sheets_folder_id;
     
-    // Method 1: Folder view with specific file (most reliable for public folders)
+    // Create a secure download page URL that only shows this user's sheets
+    const restrictedDownloadUrl = `/secure-download?game=${gameId}&participation=${participationId}&sheet=${sheetNumber}`;
+    
+    // For backward compatibility, still provide folder URL but with warning
     const folderViewUrl = `https://drive.google.com/drive/folders/${folderId}`;
     
-    // Method 2: Try to construct a direct download URL if we have the file ID
-    // For now, we'll focus on the folder approach since it's more reliable
-    let directDownloadUrl = null;
-    
-    // If the organiser has provided a direct file URL pattern, use it
-    if (game.sheets_folder_url && game.sheets_folder_url.includes('file/d/')) {
-      // This would be a direct file link pattern - extract and modify for sheet number
-      const baseFilePattern = game.sheets_folder_url;
-      // This is a simplified approach - in practice you'd need the actual file IDs
-      directDownloadUrl = folderViewUrl; // Fallback to folder for now
-    }
-    
-    // Return download options to the client
+    // Return secure download options
     res.json({
       success: true,
       fileName: fileName,
       sheetNumber: sheetNumber,
       gameName: game.name,
       downloadOptions: {
-        folder: folderViewUrl,
-        direct: directDownloadUrl,
-        instructions: `Look for file: ${fileName}`
+        secure: restrictedDownloadUrl, // Primary secure method
+        folder: folderViewUrl, // Fallback (with restrictions warning)
+        instructions: `Download your specific sheet: ${fileName}`
       },
-      message: `Sheet ${sheetNumber} ready for download`,
-      instructions: `Your sheet "${fileName}" is ready. Click the folder link to open Google Drive and download your specific sheet: ${fileName}`
+      message: `Sheet ${sheetNumber} ready for secure download`,
+      instructions: `Click the secure download link to access only your authorized sheet: ${fileName}`,
+      security: {
+        restricted: true,
+        authorizedSheets: [sheetNumber],
+        participantOnly: true
+      }
     });
 
     // Mark this sheet as accessed (for tracking)

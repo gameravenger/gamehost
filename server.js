@@ -67,6 +67,10 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
+app.get('/secure-download', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'secure-download.html'));
+});
+
 app.get('/privacy-policy', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'privacy-policy.html'));
 });

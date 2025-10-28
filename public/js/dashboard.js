@@ -310,8 +310,13 @@ class DashboardManager {
       const response = await app.apiCall(downloadUrl.replace('/api', ''));
       
       if (response.success && response.downloadOptions) {
-        // Try direct download first if available
-        if (response.downloadOptions.direct) {
+        // SECURITY ENHANCEMENT: Use secure download page if available
+        if (response.downloadOptions.secure) {
+          // Redirect to secure download page
+          window.open(response.downloadOptions.secure, '_blank');
+          app.showNotification(`🔐 Opening secure download page for: ${fileName}`, 'success');
+        } else if (response.downloadOptions.direct) {
+          // Try direct download if available
           const link = document.createElement('a');
           link.href = response.downloadOptions.direct;
           link.download = fileName;
@@ -320,17 +325,21 @@ class DashboardManager {
           link.click();
           document.body.removeChild(link);
           
-          // Show fallback option if direct download might not work
-          setTimeout(() => {
-            app.showNotification(
-              `If download didn't start, <a href="${response.downloadOptions.folder}" target="_blank">click here to open folder</a> and look for: ${fileName}`, 
-              'info'
-            );
-          }, 2000);
+          app.showNotification(`📥 Starting download: ${fileName}`, 'success');
         } else if (response.downloadOptions.folder) {
-          // Open folder view directly
-          window.open(response.downloadOptions.folder, '_blank');
-          app.showNotification(`Opening Google Drive folder. Look for and download: ${fileName}`, 'success');
+          // Folder access with security warning
+          const confirmed = confirm(
+            `⚠️ SECURITY NOTICE ⚠️\n\n` +
+            `You are about to access the game sheets folder.\n` +
+            `Please only download your authorized sheet: ${fileName}\n\n` +
+            `Downloading other sheets violates terms of service.\n\n` +
+            `Continue?`
+          );
+          
+          if (confirmed) {
+            window.open(response.downloadOptions.folder, '_blank');
+            app.showNotification(`📁 Opening folder. Only download: ${fileName}`, 'warning');
+          }
         } else {
           throw new Error('No download options available');
         }

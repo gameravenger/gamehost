@@ -392,6 +392,7 @@ router.get('/user/participations', authenticateToken, async (req, res) => {
       .select(`
         *,
         games (
+          id,
           name,
           banner_image_url,
           game_date,

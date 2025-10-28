@@ -635,6 +635,9 @@ class OrganiserManager {
                 🔍 Auto-Scan
               </button>
             ` : ''}
+            <button class="btn btn-success btn-sm" onclick="organiserManager.uploadSheets('${game.id}')" title="Upload sheet files directly">
+              📤 Upload Sheets
+            </button>
             ${game.status === 'upcoming' ? `
               <button class="btn btn-success btn-sm" onclick="organiserManager.startGame('${game.id}')">
                 Start Game
@@ -758,6 +761,18 @@ class OrganiserManager {
     app.showNotification('Manual configuration interface coming soon. For now, contact support with your file IDs.', 'info');
     // Remove the modal
     document.querySelector('.modal-overlay')?.remove();
+  }
+
+  // Upload sheets directly to server
+  uploadSheets(gameId) {
+    const game = this.games.find(g => g.id === gameId);
+    if (!game) {
+      app.showNotification('Game not found', 'error');
+      return;
+    }
+
+    // Redirect to upload page
+    window.location.href = `/upload-sheets.html?gameId=${gameId}`;
   }
 
   filterGames(status) {

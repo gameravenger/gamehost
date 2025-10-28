@@ -1,7 +1,47 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { supabase, supabaseAdmin } = require('../config/database');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const gameId = req.params.gameId || 'temp';
+    const uploadDir = path.join(__dirname, '..', 'uploads', 'games', gameId);
+    
+    // Create directory if it doesn't exist
+    fs.mkdirSync(uploadDir, { recursive: true });
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    // Extract sheet number from filename or use timestamp
+    const originalName = file.originalname;
+    const sheetMatch = originalName.match(/(\d+)/);
+    const sheetNumber = sheetMatch ? sheetMatch[1] : Date.now();
+    const extension = path.extname(originalName);
+    
+    cb(null, `Sheet_${sheetNumber}${extension}`);
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit per file
+    files: 100 // Max 100 files at once
+  },
+  fileFilter: function (req, file, cb) {
+    // Accept PDF files only
+    if (file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only PDF files are allowed'), false);
+    }
+  }
+});
 
 // Middleware to verify organiser token
 const authenticateOrganiser = (req, res, next) => {
@@ -656,6 +696,100 @@ router.post('/scan-folder-preview', authenticateOrganiser, async (req, res) => {
       error: 'Preview scan endpoint failed',
       details: error.message,
       suggestion: 'Please try again or contact support if the issue persists'
+    });
+  }
+});
+
+// UPLOAD SHEETS - Direct file upload to server (RELIABLE SOLUTION)
+router.post('/games/:gameId/upload-sheets', authenticateOrganiser, upload.array('sheets', 100), async (req, res) => {
+  try {
+    const { gameId } = req.params;
+    const uploadedFiles = req.files;
+
+    console.log(`📤 UPLOAD: Received ${uploadedFiles.length} files for game ${gameId}`);
+
+    if (!uploadedFiles || uploadedFiles.length === 0) {
+      return res.status(400).json({
+        error: 'No files uploaded',
+        message: 'Please select PDF files to upload'
+      });
+    }
+
+    // Verify game belongs to organiser
+    const { data: organiser } = await supabaseAdmin
+      .from('organisers')
+      .select('id')
+      .eq('user_id', req.user.userId)
+      .single();
+
+    const { data: game } = await supabaseAdmin
+      .from('games')
+      .select('organiser_id, name')
+      .eq('id', gameId)
+      .single();
+
+    if (!game || game.organiser_id !== organiser.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Process uploaded files and create mapping
+    const sheetFiles = {};
+    const uploadedSheets = [];
+
+    uploadedFiles.forEach(file => {
+      const sheetMatch = file.filename.match(/Sheet_(\d+)/);
+      if (sheetMatch) {
+        const sheetNumber = parseInt(sheetMatch[1]);
+        const relativePath = path.relative(path.join(__dirname, '..'), file.path);
+        
+        sheetFiles[sheetNumber] = {
+          fileId: `LOCAL_${gameId}_${sheetNumber}`,
+          fileName: file.filename,
+          originalName: file.originalname,
+          size: file.size,
+          path: relativePath,
+          uploadedAt: new Date().toISOString()
+        };
+        
+        uploadedSheets.push(sheetNumber);
+        console.log(`✅ UPLOAD: Sheet ${sheetNumber} -> ${file.filename} (${file.size} bytes)`);
+      }
+    });
+
+    // Update game with uploaded sheet information
+    const { error: updateError } = await supabaseAdmin
+      .from('games')
+      .update({
+        individual_sheet_files: sheetFiles,
+        total_sheets: uploadedSheets.length,
+        sheets_uploaded: true,
+        upload_method: 'direct_upload',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', gameId);
+
+    if (updateError) {
+      console.error('❌ UPLOAD: Database update failed:', updateError);
+      return res.status(500).json({ error: 'Failed to update game data' });
+    }
+
+    console.log(`✅ UPLOAD: Successfully uploaded ${uploadedSheets.length} sheets for game ${game.name}`);
+
+    res.json({
+      success: true,
+      message: `Successfully uploaded ${uploadedSheets.length} sheets`,
+      uploadedSheets: uploadedSheets.sort((a, b) => a - b),
+      totalSheets: uploadedSheets.length,
+      gameName: game.name,
+      uploadMethod: 'direct_upload',
+      sheetFiles: sheetFiles
+    });
+
+  } catch (error) {
+    console.error('💥 UPLOAD ERROR:', error);
+    res.status(500).json({
+      error: 'Upload failed',
+      details: error.message
     });
   }
 });

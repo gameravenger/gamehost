@@ -1,4 +1,6 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
 const { supabase, supabaseAdmin } = require('../config/database');
 const router = express.Router();
 
@@ -310,6 +312,51 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
         },
         adminAction: 'Use POST /api/organiser/games/:id/auto-scan-sheets to enable downloads',
         businessProtection: 'Download blocked to prevent unauthorized access to other sheets'
+      });
+    }
+
+    // Check if this is a locally uploaded file
+    const isLocalFile = fileId.startsWith('LOCAL_');
+    
+    if (isLocalFile) {
+      console.log(`📥 DIRECT FILE DOWNLOAD: Using direct server file for sheet ${requestedSheet}`);
+      
+      const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', requestedSheet);
+      
+      console.log(`📥 DIRECT DOWNLOAD: Serving uploaded file ${fileName} directly from server`);
+      
+      // Mark as downloaded BEFORE providing download link
+      const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
+      await supabaseAdmin
+        .from('game_participants')
+        .update({
+          downloaded_sheet_numbers: updatedDownloadedSheets,
+          sheets_downloaded: updatedDownloadedSheets.length === selectedSheetsAsNumbers.length,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', participationId);
+      
+      // Use the DIRECT FILE download endpoint
+      const directFileUrl = `/api/games/sheets/download-file/${participationId}/${sheetNumber}`;
+      
+      return res.json({
+        success: true,
+        fileName: fileName,
+        sheetNumber: requestedSheet,
+        gameName: game.name,
+        directDownload: true,
+        downloadUrl: directFileUrl,
+        downloadMethod: 'direct_file',
+        message: `Sheet ${requestedSheet} ready for direct download`,
+        security: {
+          directFileAccess: true,
+          serverStoredFile: true,
+          noExternalDependency: true,
+          authorizedSheet: requestedSheet,
+          participantOnly: true,
+          downloadTracked: true,
+          businessProtected: true
+        }
       });
     }
 
@@ -1187,6 +1234,100 @@ router.get('/sheets/secure-proxy/:participationId/:sheetNumber/:fileName', authe
     console.error('💥 SECURE PROXY ERROR:', error);
     res.status(500).json({
       error: 'Secure download failed',
+      details: error.message
+    });
+  }
+});
+
+// DIRECT FILE DOWNLOAD - Serves uploaded files securely
+router.get('/sheets/download-file/:participationId/:sheetNumber', authenticateToken, async (req, res) => {
+  try {
+    const { participationId, sheetNumber } = req.params;
+    const userId = req.user.userId;
+    
+    console.log(`📥 DIRECT DOWNLOAD: User ${userId} requesting sheet ${sheetNumber} from participation ${participationId}`);
+    
+    // Verify user has access to this specific sheet
+    const { data: participation } = await supabaseAdmin
+      .from('game_participants')
+      .select(`
+        *,
+        games (
+          id,
+          name,
+          individual_sheet_files
+        )
+      `)
+      .eq('id', participationId)
+      .eq('user_id', userId)
+      .eq('payment_status', 'approved')
+      .single();
+
+    if (!participation) {
+      console.log(`❌ SECURITY: Access denied for user ${userId}, participation ${participationId}`);
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Check if user selected this specific sheet
+    const selectedSheets = participation.selected_sheet_numbers || [];
+    const requestedSheet = parseInt(sheetNumber);
+    
+    if (!selectedSheets.includes(requestedSheet)) {
+      console.log(`❌ SECURITY: User ${userId} did not select sheet ${requestedSheet}`);
+      return res.status(403).json({ error: 'Sheet not selected by user' });
+    }
+
+    // Check if already downloaded (one-time download)
+    const downloadedSheets = participation.downloaded_sheet_numbers || [];
+    if (downloadedSheets.includes(requestedSheet)) {
+      console.log(`❌ SECURITY: Sheet ${requestedSheet} already downloaded by user ${userId}`);
+      return res.status(409).json({ error: 'Sheet already downloaded' });
+    }
+
+    const game = participation.games;
+    const individualFiles = game.individual_sheet_files || {};
+    const fileInfo = individualFiles[requestedSheet.toString()];
+    
+    if (!fileInfo || !fileInfo.path) {
+      console.log(`❌ FILE NOT FOUND: No file path for sheet ${requestedSheet}`);
+      return res.status(404).json({ error: 'Sheet file not found' });
+    }
+
+    // Get the actual file path
+    const filePath = path.join(__dirname, '..', fileInfo.path);
+    
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      console.log(`❌ FILE NOT FOUND: File does not exist at ${filePath}`);
+      return res.status(404).json({ error: 'Sheet file not found on server' });
+    }
+
+    // Mark as downloaded BEFORE serving file
+    const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
+    await supabaseAdmin
+      .from('game_participants')
+      .update({
+        downloaded_sheet_numbers: updatedDownloadedSheets,
+        sheets_downloaded: updatedDownloadedSheets.length === selectedSheets.length,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', participationId);
+
+    console.log(`✅ DIRECT DOWNLOAD: Serving ${fileInfo.fileName} to user ${userId}`);
+
+    // Set headers for file download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.fileName}"`);
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    
+    // Stream the file directly from server storage
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+    
+  } catch (error) {
+    console.error('💥 DIRECT DOWNLOAD ERROR:', error);
+    res.status(500).json({
+      error: 'Download failed',
       details: error.message
     });
   }

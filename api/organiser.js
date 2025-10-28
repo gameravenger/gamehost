@@ -11,32 +11,34 @@ const router = express.Router();
 const driveStorage = new GoogleDriveStorage();
 
 // Configure multer for Google Drive uploads with compression
-const googleDriveUpload = multer({
-  storage: new MulterGoogleDriveStorage({
-    tempDir: '/tmp',
-    compressionQuality: 75, // 75% quality for good compression
-    parentFolderId: process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID // Your 2TB Google Drive folder
-  }),
-  limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit per file (will be compressed)
-    files: 100 // Max 100 files at once
-  },
-  fileFilter: function (req, file, cb) {
-    // Accept images, PDFs, and common document types
-    const allowedTypes = [
-      'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    ];
-    
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('File type not supported. Allowed: Images, PDF, Word documents'), false);
+const createGoogleDriveUpload = () => {
+  return multer({
+    storage: new MulterGoogleDriveStorage({
+      tempDir: process.env.TEMP_DIR || '/tmp',
+      compressionQuality: parseInt(process.env.COMPRESSION_QUALITY) || 75,
+      parentFolderId: process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID
+      }),
+    limits: {
+      fileSize: 50 * 1024 * 1024, // 50MB limit per file (will be compressed)
+      files: 100 // Max 100 files at once
+    },
+    fileFilter: function (req, file, cb) {
+      // Accept images, PDFs, and common document types
+      const allowedTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      ];
+      
+      if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new Error('File type not supported. Allowed: Images, PDF, Word documents'), false);
+      }
     }
-  }
-});
+  });
+};
 
 // Middleware to verify organiser token
 const authenticateOrganiser = (req, res, next) => {
@@ -696,7 +698,18 @@ router.post('/scan-folder-preview', authenticateOrganiser, async (req, res) => {
 });
 
 // UPLOAD TO GOOGLE DRIVE - Upload sheets/banners/images with auto-compression
-router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, googleDriveUpload.array('files', 100), async (req, res) => {
+router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, (req, res, next) => {
+  // Check if Google Drive is configured
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY || !process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID) {
+    return res.status(500).json({
+      error: 'Google Drive storage not configured',
+      message: 'Please configure Google Drive storage first. See GOOGLE_DRIVE_STORAGE_SETUP.md'
+    });
+  }
+  
+  const googleDriveUpload = createGoogleDriveUpload();
+  googleDriveUpload.array('files', 100)(req, res, next);
+}, async (req, res) => {
   try {
     const { gameId } = req.params;
     const { fileType } = req.body; // 'sheets', 'banners', 'images'
@@ -827,6 +840,14 @@ router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, googleDrive
 // AUTO-CLEANUP - Delete files older than 2 days from Google Drive
 router.post('/cleanup-old-files', authenticateOrganiser, async (req, res) => {
   try {
+    // Check if Google Drive is configured
+    if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY || !process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID) {
+      return res.status(500).json({
+        error: 'Google Drive storage not configured',
+        message: 'Please configure Google Drive storage first'
+      });
+    }
+    
     console.log('🧹 CLEANUP: Starting auto-cleanup of old files...');
     
     const cleanupResult = await driveStorage.cleanupOldFiles(2, process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID);

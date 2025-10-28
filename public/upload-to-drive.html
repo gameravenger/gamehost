@@ -259,16 +259,17 @@
                         return;
                     }
 
-                    const response = await app.apiCall(`/organiser/games/${this.gameId}`);
-                    if (response.success) {
-                        document.getElementById('gameInfo').innerHTML = `
-                            <strong>Game:</strong> ${response.game.name} | 
-                            <strong>Status:</strong> ${response.game.status} |
-                            <strong>Upload Type:</strong> ${this.selectedFileType}
-                        `;
-                    }
+                    // Simple game info display without API call for now
+                    document.getElementById('gameInfo').innerHTML = `
+                        <strong>Game ID:</strong> ${this.gameId} | 
+                        <strong>Upload Type:</strong> ${this.selectedFileType}
+                    `;
                 } catch (error) {
                     console.error('Failed to load game info:', error);
+                    document.getElementById('gameInfo').innerHTML = `
+                        <strong>Game ID:</strong> ${this.gameId} | 
+                        <strong>Upload Type:</strong> ${this.selectedFileType}
+                    `;
                 }
             }
 
@@ -417,6 +418,11 @@
                     });
 
                     this.progressBar.style.width = '90%';
+
+                    if (!response.ok) {
+                        const errorResult = await response.json();
+                        throw new Error(errorResult.message || errorResult.error || 'Upload failed');
+                    }
 
                     const result = await response.json();
 

@@ -8,6 +8,12 @@ class CleanupScheduler {
   }
 
   setupScheduler() {
+    // Check if Google Drive is configured
+    if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY || !process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID) {
+      console.log('⚠️ SCHEDULER: Google Drive not configured - cleanup scheduler disabled');
+      return;
+    }
+
     // Run cleanup every day at 2 AM
     cron.schedule('0 2 * * *', async () => {
       console.log('🕐 SCHEDULER: Starting daily cleanup at 2 AM...');

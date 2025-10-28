@@ -32,11 +32,22 @@ class GoogleDriveStorage {
       const stats = fs.statSync(inputPath);
       const originalSize = stats.size;
 
-      await sharp(inputPath)
-        .jpeg({ quality: quality, progressive: true })
-        .png({ compressionLevel: 9, progressive: true })
-        .webp({ quality: quality })
-        .toFile(outputPath);
+      // Determine output format based on input
+      const ext = path.extname(inputPath).toLowerCase();
+      let sharpInstance = sharp(inputPath);
+      
+      if (ext === '.jpg' || ext === '.jpeg') {
+        sharpInstance = sharpInstance.jpeg({ quality: quality, progressive: true });
+      } else if (ext === '.png') {
+        sharpInstance = sharpInstance.png({ compressionLevel: 9, progressive: true });
+      } else if (ext === '.webp') {
+        sharpInstance = sharpInstance.webp({ quality: quality });
+      } else {
+        // For other formats, convert to JPEG with compression
+        sharpInstance = sharpInstance.jpeg({ quality: quality, progressive: true });
+      }
+      
+      await sharpInstance.toFile(outputPath);
 
       const compressedStats = fs.statSync(outputPath);
       const compressedSize = compressedStats.size;
@@ -259,6 +270,11 @@ class MulterGoogleDriveStorage {
   }
 
   _handleFile(req, file, cb) {
+    // Ensure temp directory exists
+    if (!fs.existsSync(this.tempDir)) {
+      fs.mkdirSync(this.tempDir, { recursive: true });
+    }
+    
     const tempFilePath = path.join(this.tempDir, `temp_${Date.now()}_${file.originalname}`);
     const compressedFilePath = path.join(this.tempDir, `compressed_${Date.now()}_${file.originalname}`);
 

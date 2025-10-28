@@ -165,11 +165,13 @@ class AuthManager {
       const success = await app.register(userData, userType === 'organiser');
       
       if (success) {
-        this.closeSignupModal();
+        // Only close modal if registration was successful
+        closeSignupModal();
       }
 
     } catch (error) {
-      app.showNotification(error.message, 'error');
+      console.error('Signup error:', error);
+      app.showNotification(error.message || 'Registration failed', 'error');
     } finally {
       // Remove loading state
       submitBtn.classList.remove('loading');

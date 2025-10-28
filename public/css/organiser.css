@@ -887,3 +887,105 @@
     flex-direction: column;
   }
 }
+
+/* Pending Verifications Widget Styles */
+.pending-verifications-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pending-verification-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  background: rgba(255, 107, 53, 0.05);
+  border: 1px solid rgba(255, 107, 53, 0.2);
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.pending-verification-item:hover {
+  background: rgba(255, 107, 53, 0.1);
+  border-color: rgba(255, 107, 53, 0.3);
+}
+
+.participant-info {
+  flex: 1;
+}
+
+.participant-name {
+  font-weight: 600;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+
+.participant-game {
+  font-size: 0.9rem;
+  color: var(--primary-color);
+  margin-bottom: 6px;
+}
+
+.participant-details {
+  display: flex;
+  gap: 15px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.verification-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  border-radius: 4px;
+}
+
+.btn-success {
+  background: var(--success-color);
+  color: white;
+  border: none;
+}
+
+.btn-success:hover {
+  background: #218838;
+}
+
+.btn-danger {
+  background: var(--error-color);
+  color: white;
+  border: none;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+}
+
+.pending-more {
+  text-align: center;
+  padding: 10px;
+  border-top: 1px solid rgba(255, 107, 53, 0.2);
+  margin-top: 10px;
+}
+
+@media (max-width: 768px) {
+  .pending-verification-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  
+  .verification-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  
+  .participant-details {
+    flex-direction: column;
+    gap: 4px;
+  }
+}

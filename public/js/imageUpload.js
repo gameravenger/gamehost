@@ -11,8 +11,16 @@ class ImageUploadManager {
     const container = document.getElementById(containerId);
     if (!container) return;
 
+    // Create unique IDs for this widget instance
+    const widgetId = containerId + '_widget';
+    const driveUrlId = containerId + '_driveUrl';
+    const driveResultId = containerId + '_driveResult';
+    const driveDirectUrlId = containerId + '_driveDirectUrl';
+    const drivePreviewId = containerId + '_drivePreview';
+    const drivePreviewImageId = containerId + '_drivePreviewImage';
+
     container.innerHTML = `
-      <div class="image-upload-widget">
+      <div class="image-upload-widget" id="${widgetId}">
         <div class="drive-header">
           <h4>📂 Upload Image via Google Drive</h4>
           <p>Free, reliable, and saves our storage space!</p>
@@ -46,30 +54,30 @@ class ImageUploadManager {
         
         <div class="drive-input-section">
           <label>Google Drive Sharing Link:</label>
-          <input type="url" id="driveUrl" placeholder="https://drive.google.com/file/d/1ABC123/view?usp=sharing" class="form-control">
-          <button type="button" class="btn btn-primary" onclick="imageUploadManager.processDriveUrl()">
+          <input type="url" id="${driveUrlId}" placeholder="https://drive.google.com/file/d/1ABC123/view?usp=sharing" class="form-control">
+          <button type="button" class="btn btn-primary" onclick="imageUploadManager.processDriveUrl('${containerId}')">
             🔄 Convert to Direct Link
           </button>
         </div>
         
-        <div class="drive-result" id="driveResult" style="display: none;">
+        <div class="drive-result" id="${driveResultId}" style="display: none;">
           <div class="result-success">
             <h4>✅ Success! Direct Image URL Ready:</h4>
-            <input type="url" id="driveDirectUrl" class="form-control" readonly>
+            <input type="url" id="${driveDirectUrlId}" class="form-control" readonly>
             <div class="result-actions">
-              <button type="button" class="btn btn-success" onclick="imageUploadManager.useDriveUrl()">
+              <button type="button" class="btn btn-success" onclick="imageUploadManager.useDriveUrl('${containerId}')">
                 ✅ Use This URL
               </button>
-              <button type="button" class="btn btn-secondary" onclick="imageUploadManager.testDriveUrl()">
+              <button type="button" class="btn btn-secondary" onclick="imageUploadManager.testDriveUrl('${containerId}')">
                 🔍 Test Image
               </button>
             </div>
           </div>
         </div>
         
-        <div class="drive-preview" id="drivePreview" style="display: none;">
+        <div class="drive-preview" id="${drivePreviewId}" style="display: none;">
           <h4>🖼️ Image Preview:</h4>
-          <img id="drivePreviewImage" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 1px solid rgba(255, 107, 53, 0.3);">
+          <img id="${drivePreviewImageId}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 1px solid rgba(255, 107, 53, 0.3);">
         </div>
         
         <div class="drive-tips">
@@ -98,18 +106,34 @@ class ImageUploadManager {
       </div>
     `;
 
-    this.setupEventListeners(onSuccess, onError);
+    // Store callbacks for this specific widget
+    this.setupEventListeners(containerId, onSuccess, onError);
   }
 
-  setupEventListeners(onSuccess, onError) {
-    this.onSuccess = onSuccess;
-    this.onError = onError;
+  setupEventListeners(containerId, onSuccess, onError) {
+    // Store callbacks for each widget instance
+    if (!this.widgets) {
+      this.widgets = {};
+    }
+    this.widgets[containerId] = {
+      onSuccess: onSuccess,
+      onError: onError
+    };
   }
 
-  processDriveUrl() {
-    const driveInput = document.getElementById('driveUrl');
-    const result = document.getElementById('driveResult');
-    const directUrlInput = document.getElementById('driveDirectUrl');
+  processDriveUrl(containerId) {
+    const driveUrlId = containerId + '_driveUrl';
+    const driveResultId = containerId + '_driveResult';
+    const driveDirectUrlId = containerId + '_driveDirectUrl';
+    
+    const driveInput = document.getElementById(driveUrlId);
+    const result = document.getElementById(driveResultId);
+    const directUrlInput = document.getElementById(driveDirectUrlId);
+    
+    if (!driveInput || !result || !directUrlInput) {
+      app.showNotification('❌ Widget elements not found', 'error');
+      return;
+    }
     
     const driveUrl = driveInput.value.trim();
     if (!driveUrl) {
@@ -132,19 +156,41 @@ class ImageUploadManager {
     app.showNotification('✅ Google Drive link converted! Click "Test Image" to verify.', 'success');
   }
 
-  useDriveUrl() {
-    const directUrl = document.getElementById('driveDirectUrl').value;
-    if (this.onSuccess) {
-      this.onSuccess(directUrl);
+  useDriveUrl(containerId) {
+    const driveDirectUrlId = containerId + '_driveDirectUrl';
+    const directUrlInput = document.getElementById(driveDirectUrlId);
+    
+    if (!directUrlInput) {
+      app.showNotification('❌ Widget elements not found', 'error');
+      return;
+    }
+    
+    const directUrl = directUrlInput.value;
+    const widget = this.widgets && this.widgets[containerId];
+    
+    if (widget && widget.onSuccess) {
+      widget.onSuccess(directUrl);
       app.showNotification('✅ Image URL added to form!', 'success');
+    } else {
+      app.showNotification('❌ Widget callback not found', 'error');
     }
   }
 
-  async testDriveUrl() {
-    const directUrl = document.getElementById('driveDirectUrl').value;
-    const preview = document.getElementById('drivePreview');
-    const previewImg = document.getElementById('drivePreviewImage');
+  async testDriveUrl(containerId) {
+    const driveDirectUrlId = containerId + '_driveDirectUrl';
+    const drivePreviewId = containerId + '_drivePreview';
+    const drivePreviewImageId = containerId + '_drivePreviewImage';
     
+    const directUrlInput = document.getElementById(driveDirectUrlId);
+    const preview = document.getElementById(drivePreviewId);
+    const previewImg = document.getElementById(drivePreviewImageId);
+    
+    if (!directUrlInput || !preview || !previewImg) {
+      app.showNotification('❌ Widget elements not found', 'error');
+      return;
+    }
+    
+    const directUrl = directUrlInput.value;
     if (!directUrl) {
       app.showNotification('No URL to test', 'warning');
       return;

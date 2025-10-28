@@ -304,19 +304,43 @@ class DashboardManager {
 
   async downloadSheet(downloadUrl, fileName) {
     try {
-      // Create a temporary link to trigger download
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = fileName;
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      app.showNotification(`Preparing ${fileName} for download...`, 'info');
       
-      app.showNotification(`Downloading ${fileName}...`, 'success');
+      // Get download information from API
+      const response = await app.apiCall(downloadUrl.replace('/api', ''));
+      
+      if (response.success && response.downloadOptions) {
+        // Try direct download first if available
+        if (response.downloadOptions.direct) {
+          const link = document.createElement('a');
+          link.href = response.downloadOptions.direct;
+          link.download = fileName;
+          link.target = '_blank';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          // Show fallback option if direct download might not work
+          setTimeout(() => {
+            app.showNotification(
+              `If download didn't start, <a href="${response.downloadOptions.folder}" target="_blank">click here to open folder</a> and look for: ${fileName}`, 
+              'info'
+            );
+          }, 2000);
+        } else if (response.downloadOptions.folder) {
+          // Open folder view directly
+          window.open(response.downloadOptions.folder, '_blank');
+          app.showNotification(`Opening Google Drive folder. Look for and download: ${fileName}`, 'success');
+        } else {
+          throw new Error('No download options available');
+        }
+      } else {
+        throw new Error('Download information not available');
+      }
       
     } catch (error) {
-      app.showNotification('Download failed', 'error');
+      console.error('Download error:', error);
+      app.showNotification(error.message || 'Download failed', 'error');
     }
   }
 

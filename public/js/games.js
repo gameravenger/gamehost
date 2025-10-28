@@ -104,6 +104,8 @@ class GamesManager {
       this.showLoading(true);
       
       console.log('🎮 Loading games...');
+      console.log('👤 Current user:', app.user);
+      
       // Always load public games to show all available games
       const response = await app.apiCall('/games/public');
       console.log('📊 Public games API response:', response);
@@ -112,6 +114,14 @@ class GamesManager {
       this.filteredGames = [...this.games];
       
       console.log('✅ Loaded games:', this.games.length);
+      
+      // Debug: Log organiser info for each game
+      if (this.games.length > 0) {
+        console.log('🎯 Games by organiser:');
+        this.games.forEach(game => {
+          console.log(`- ${game.name} by ${game.organisers?.organiser_name || 'Unknown'} (Status: ${game.status})`);
+        });
+      }
       
       if (this.games.length === 0) {
         console.log('🔄 No games found, checking today games as fallback...');

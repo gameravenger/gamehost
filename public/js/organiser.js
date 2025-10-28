@@ -330,27 +330,60 @@ class OrganiserManager {
       const allGames = response.games || [];
       
       // Get participants for all games
-      let pendingCount = 0;
+      let allPendingParticipants = [];
       const widget = document.getElementById('pendingVerificationsWidget');
       
-      for (const game of allGames.slice(0, 3)) {
+      for (const game of allGames.slice(0, 5)) { // Show more games
         try {
           const participantsResponse = await app.apiCall(`/organiser/games/${game.id}/participants`);
           const pending = participantsResponse.participants?.filter(p => p.payment_status === 'pending') || [];
-          pendingCount += pending.length;
+          
+          // Add game info to each participant
+          pending.forEach(participant => {
+            participant.gameName = game.name;
+            participant.gameId = game.id;
+          });
+          
+          allPendingParticipants.push(...pending);
         } catch (error) {
           console.error('Error loading participants for game:', game.id);
         }
       }
 
       if (widget) {
-        if (pendingCount === 0) {
+        if (allPendingParticipants.length === 0) {
           widget.innerHTML = '<p style="color: var(--text-muted); text-align: center;">No pending verifications</p>';
         } else {
+          // Show detailed list with approve/deny buttons
           widget.innerHTML = `
-            <div style="text-align: center; padding: 20px;">
-              <div style="font-size: 2rem; color: var(--warning-color); margin-bottom: 10px;">${pendingCount}</div>
-              <div style="color: var(--text-light);">Pending Verifications</div>
+            <div class="pending-verifications-list">
+              ${allPendingParticipants.slice(0, 5).map(participant => `
+                <div class="pending-verification-item">
+                  <div class="participant-info">
+                    <div class="participant-name">${participant.users?.username || 'Unknown User'}</div>
+                    <div class="participant-game">${participant.gameName}</div>
+                    <div class="participant-details">
+                      <span>Entry Fee: ₹${participant.entry_fee}</span>
+                      <span>Sheets: ${participant.selected_sheet_numbers?.join(', ') || 'None'}</span>
+                    </div>
+                  </div>
+                  <div class="verification-actions">
+                    <button class="btn btn-success btn-sm" onclick="organiserManager.approveParticipant('${participant.id}')">
+                      ✓ Approve
+                    </button>
+                    <button class="btn btn-danger btn-sm" onclick="organiserManager.denyParticipant('${participant.id}')">
+                      ✗ Deny
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+              ${allPendingParticipants.length > 5 ? `
+                <div class="pending-more">
+                  <a href="#" onclick="organiserManager.switchSection('participants')" class="btn btn-secondary btn-sm">
+                    View All ${allPendingParticipants.length} Pending
+                  </a>
+                </div>
+              ` : ''}
             </div>
           `;
         }
@@ -625,12 +658,21 @@ class OrganiserManager {
 
       app.showNotification(`Participant ${status} successfully`, 'success');
       
-      // Reload participants
+      // Reload participants and pending verifications
       await this.loadParticipants();
+      await this.loadPendingVerifications();
       
     } catch (error) {
       app.showNotification(error.message || `Failed to ${status} participant`, 'error');
     }
+  }
+
+  async approveParticipant(participantId) {
+    await this.updateParticipantStatus(participantId, 'approved');
+  }
+
+  async denyParticipant(participantId) {
+    await this.updateParticipantStatus(participantId, 'rejected');
   }
 
   viewParticipants(gameId) {

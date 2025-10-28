@@ -471,31 +471,37 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
     // Log the download attempt
     console.log(`Download attempt: User ${userId}, Game ${game.name}, Sheet ${sheetNumber}`);
 
-    // For public Google Drive folders, we need to construct the download URL
-    // Since we can't easily get individual file IDs without API access,
-    // we'll provide a direct folder access method that's still secure
-    
+    // For public Google Drive folders, we need to provide proper access
     const folderId = game.sheets_folder_id;
     
-    // Method 1: Direct Google Drive download (if files are properly named and public)
-    const directDownloadUrl = `https://drive.google.com/uc?export=download&id=${folderId}&filename=${fileName}`;
-    
-    // Method 2: Folder view with specific file (more reliable for public folders)
+    // Method 1: Folder view with specific file (most reliable for public folders)
     const folderViewUrl = `https://drive.google.com/drive/folders/${folderId}`;
     
-    // Return both options to the client
+    // Method 2: Try to construct a direct download URL if we have the file ID
+    // For now, we'll focus on the folder approach since it's more reliable
+    let directDownloadUrl = null;
+    
+    // If the organiser has provided a direct file URL pattern, use it
+    if (game.sheets_folder_url && game.sheets_folder_url.includes('file/d/')) {
+      // This would be a direct file link pattern - extract and modify for sheet number
+      const baseFilePattern = game.sheets_folder_url;
+      // This is a simplified approach - in practice you'd need the actual file IDs
+      directDownloadUrl = folderViewUrl; // Fallback to folder for now
+    }
+    
+    // Return download options to the client
     res.json({
       success: true,
       fileName: fileName,
       sheetNumber: sheetNumber,
       gameName: game.name,
       downloadOptions: {
-        direct: directDownloadUrl,
         folder: folderViewUrl,
+        direct: directDownloadUrl,
         instructions: `Look for file: ${fileName}`
       },
       message: `Sheet ${sheetNumber} ready for download`,
-      instructions: `Your sheet "${fileName}" is ready. If direct download doesn't work, use the folder link to find and download your specific sheet.`
+      instructions: `Your sheet "${fileName}" is ready. Click the folder link to open Google Drive and download your specific sheet: ${fileName}`
     });
 
     // Mark this sheet as accessed (for tracking)

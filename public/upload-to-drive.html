@@ -42,17 +42,37 @@
         .drop-zone {
             border: 3px dashed #007bff;
             border-radius: 12px;
-            padding: 60px 20px;
+            padding: 40px 20px;
             text-align: center;
             margin: 30px 0;
             background: #f8f9ff;
             transition: all 0.3s;
             cursor: pointer;
+            position: relative;
         }
         
         .drop-zone:hover, .drop-zone.dragover {
             border-color: #0056b3;
             background: #e6f3ff;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,123,255,0.15);
+        }
+        
+        .drop-zone.dragover {
+            border-style: solid;
+            background: #d4edda;
+            border-color: #28a745;
+        }
+        
+        .drop-zone .drop-content h3 {
+            margin: 10px 0;
+            color: #007bff;
+        }
+        
+        #browseBtn:hover {
+            background: #0056b3;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,123,255,0.3);
         }
         
         .file-list {
@@ -134,6 +154,14 @@
                 <li><strong>🕒 Auto-cleanup</strong> - Files deleted after 2 days automatically</li>
                 <li><strong>🔒 Secure access</strong> - Only approved users can download</li>
             </ul>
+            
+            <div style="background: #fff3cd; padding: 15px; border-radius: 6px; border-left: 4px solid #ffc107; margin-top: 15px;">
+                <h5 style="margin: 0 0 10px 0;">📋 How to Upload:</h5>
+                <p style="margin: 0;">
+                    <strong>Method 1:</strong> Drag files from your computer and drop them in the area below<br>
+                    <strong>Method 2:</strong> Click the "Browse Files from PC" button to select files
+                </p>
+            </div>
         </div>
         
         <div class="file-type-selector">
@@ -151,11 +179,17 @@
         
         <div class="drop-zone" id="dropZone">
             <div class="drop-content">
-                <h3>📤 Drag & Drop Files Here</h3>
-                <p>or <strong>click to browse</strong></p>
+                <div style="font-size: 48px; margin-bottom: 15px;">📤</div>
+                <h3>Drag & Drop Files Here</h3>
+                <div style="margin: 20px 0; font-size: 18px; font-weight: bold;">
+                    <span style="background: #fff; padding: 0 15px; border-radius: 20px; border: 2px solid #007bff;">OR</span>
+                </div>
+                <button type="button" class="btn btn-primary" id="browseBtn" style="margin-bottom: 15px; font-size: 16px;">
+                    📁 Browse Files from PC
+                </button>
                 <p class="text-muted">
                     Supported: Images (JPG, PNG, WebP, GIF), PDF, Word Documents<br>
-                    Max size: 50MB per file (will be compressed)
+                    Max size: 50MB per file (will be compressed automatically)
                 </p>
             </div>
             <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.webp,.gif,.pdf,.doc,.docx" style="display: none;">
@@ -227,27 +261,75 @@
                     });
                 });
 
-                // Drag and drop
-                this.dropZone.addEventListener('click', () => this.fileInput.click());
+                // Browse button (explicit PC file browser)
+                document.getElementById('browseBtn').addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent triggering dropZone click
+                    this.fileInput.click();
+                });
+
+                // Drag and drop area (click anywhere in drop zone)
+                this.dropZone.addEventListener('click', (e) => {
+                    // Only trigger if not clicking the browse button
+                    if (e.target.id !== 'browseBtn') {
+                        this.fileInput.click();
+                    }
+                });
+
+                // Drag and drop events
                 this.dropZone.addEventListener('dragover', (e) => {
                     e.preventDefault();
+                    e.dataTransfer.dropEffect = 'copy';
                     this.dropZone.classList.add('dragover');
+                    
+                    // Update text during drag
+                    const h3 = this.dropZone.querySelector('h3');
+                    if (h3 && !h3.textContent.includes('Drop')) {
+                        h3.textContent = '📥 Drop Files Here!';
+                    }
                 });
-                this.dropZone.addEventListener('dragleave', () => {
-                    this.dropZone.classList.remove('dragover');
+                
+                this.dropZone.addEventListener('dragleave', (e) => {
+                    // Only remove dragover if leaving the drop zone completely
+                    if (!this.dropZone.contains(e.relatedTarget)) {
+                        this.dropZone.classList.remove('dragover');
+                        // Restore original text
+                        const h3 = this.dropZone.querySelector('h3');
+                        if (h3) {
+                            h3.textContent = 'Drag & Drop Files Here';
+                        }
+                    }
                 });
+                
                 this.dropZone.addEventListener('drop', (e) => {
                     e.preventDefault();
                     this.dropZone.classList.remove('dragover');
+                    
+                    // Restore original text
+                    const h3 = this.dropZone.querySelector('h3');
+                    if (h3) {
+                        h3.textContent = 'Drag & Drop Files Here';
+                    }
+                    
                     this.handleFiles(e.dataTransfer.files);
+                    
+                    // Show success feedback
+                    if (e.dataTransfer.files.length > 0) {
+                        this.showDropFeedback(e.dataTransfer.files.length);
+                    }
                 });
 
-                // File input
+                // File input change (handles both browse button and drag & drop)
                 this.fileInput.addEventListener('change', (e) => {
-                    this.handleFiles(e.target.files);
+                    if (e.target.files.length > 0) {
+                        this.handleFiles(e.target.files);
+                        // Show feedback for browse selection
+                        this.showDropFeedback(e.target.files.length);
+                    }
+                    // Clear the input so the same file can be selected again
+                    e.target.value = '';
                 });
 
-                // Buttons
+                // Action buttons
                 this.uploadBtn.addEventListener('click', () => this.uploadFiles());
                 this.clearBtn.addEventListener('click', () => this.clearFiles());
             }
@@ -349,6 +431,43 @@
                 this.renderFileList();
                 this.updateUploadButton();
                 this.compressionInfo.style.display = 'none';
+            }
+
+            showDropFeedback(fileCount) {
+                // Create temporary feedback element
+                const feedback = document.createElement('div');
+                feedback.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: #28a745;
+                    color: white;
+                    padding: 15px 20px;
+                    border-radius: 8px;
+                    font-weight: bold;
+                    z-index: 1000;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                    transform: translateX(100%);
+                    transition: transform 0.3s ease;
+                `;
+                feedback.textContent = `✅ ${fileCount} file${fileCount > 1 ? 's' : ''} added!`;
+                
+                document.body.appendChild(feedback);
+                
+                // Animate in
+                setTimeout(() => {
+                    feedback.style.transform = 'translateX(0)';
+                }, 100);
+                
+                // Remove after 3 seconds
+                setTimeout(() => {
+                    feedback.style.transform = 'translateX(100%)';
+                    setTimeout(() => {
+                        if (feedback.parentNode) {
+                            feedback.parentNode.removeChild(feedback);
+                        }
+                    }, 300);
+                }, 3000);
             }
 
             updateUploadButton() {

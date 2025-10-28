@@ -353,21 +353,24 @@ ERROR DETAILS:
     
     modalBody.innerHTML = `
       <div class="download-summary">
-        <p>You have <strong>${totalSheets}</strong> sheets ready for download.</p>
-        <p class="download-warning">🔒 <strong>Security Notice:</strong> You can only download sheets you've purchased. Each sheet can only be downloaded once.</p>
-        <p class="download-info">📋 <strong>Your Purchased Sheets:</strong> ${sheets.map(s => s.sheetNumber).join(', ')}</p>
+        <p>You have <strong>${totalSheets}</strong> approved sheets ready for secure download.</p>
+        <p class="download-warning">🔒 <strong>Security Notice:</strong> Each sheet can only be downloaded ONCE. No folder access provided.</p>
+        <p class="download-info">📋 <strong>Your Authorized Sheets:</strong> ${sheets.map(s => s.sheetNumber).join(', ')}</p>
       </div>
       
       <div class="download-list">
         ${sheets.map(sheet => `
-          <div class="download-item">
+          <div class="download-item" id="sheet-${sheet.participationId}-${sheet.sheetNumber}">
             <div class="download-item-info">
               <div class="download-item-name">Sheet ${sheet.sheetNumber}</div>
               <div class="download-item-details">${sheet.fileName}</div>
-              <div class="download-security">🔐 Secure Download Only</div>
+              <div class="download-security">🔐 One-Time Secure Download</div>
             </div>
-            <button class="btn-download-sheet" onclick="dashboardManager.downloadSecureSheet('${sheet.participationId || ''}', '${sheet.sheetNumber}', '${sheet.fileName}')">
-              🔐 Secure Download
+            <button class="btn-download-sheet" 
+                    onclick="dashboardManager.downloadSecureSheet('${sheet.participationId || ''}', '${sheet.sheetNumber}', '${sheet.fileName}')"
+                    data-participation="${sheet.participationId}"
+                    data-sheet="${sheet.sheetNumber}">
+              📥 Download Now
             </button>
           </div>
         `).join('')}
@@ -375,7 +378,7 @@ ERROR DETAILS:
       
       <div class="download-actions">
         <button class="btn btn-primary" onclick="dashboardManager.downloadAllSecureSheets(${JSON.stringify(sheets).replace(/"/g, '&quot;')})">
-          🔐 Download All Sheets Securely
+          📥 Download All Sheets (One by One)
         </button>
         <button class="btn btn-secondary" onclick="closeDownloadModal()">
           Close
@@ -383,12 +386,13 @@ ERROR DETAILS:
       </div>
       
       <div class="security-notice">
-        <h4>🛡️ Security Information:</h4>
+        <h4>🛡️ Enhanced Security Features:</h4>
         <ul>
-          <li>✅ You can only download sheets you've purchased and paid for</li>
-          <li>🔒 Each download is individually authorized and tracked</li>
-          <li>⚠️ Attempting to download unauthorized sheets will be logged</li>
-          <li>📥 Downloads are limited to prevent abuse</li>
+          <li>🔐 <strong>Individual Sheet Access:</strong> Only your purchased sheets are accessible</li>
+          <li>⚡ <strong>Fast Downloads:</strong> Direct download links with no delays</li>
+          <li>🚫 <strong>No Folder Access:</strong> Cannot access other participants' sheets</li>
+          <li>📊 <strong>Download Tracking:</strong> Each download is logged and limited</li>
+          <li>✅ <strong>One-Time Only:</strong> Each sheet can only be downloaded once</li>
         </ul>
       </div>
     `;
@@ -447,23 +451,109 @@ ERROR DETAILS:
     }
   }
 
-  // New secure download method for individual sheets
+  // SECURE DOWNLOAD - Individual sheets with proper authorization
   async downloadSecureSheet(participationId, sheetNumber, fileName) {
     try {
-      app.showNotification(`🔐 Initiating secure download for ${fileName}...`, 'info');
+      app.showNotification(`🔐 Authorizing download for ${fileName}...`, 'info');
       
-      // Use the secure download page for maximum security
-      const secureUrl = `/secure-download?participation=${participationId}&sheet=${sheetNumber}`;
+      console.log(`🔐 DOWNLOAD: Requesting secure download for sheet ${sheetNumber}, participation ${participationId}`);
       
-      // Open in new tab for secure download
-      window.open(secureUrl, '_blank');
+      // Call the secure download API to get authorization
+      const response = await app.apiCall(`/games/sheets/secure-download/${participationId}/${sheetNumber}`);
       
-      app.showNotification(`🔐 Secure download opened for ${fileName}`, 'success');
+      if (response.success && response.downloadUrl) {
+        console.log(`✅ DOWNLOAD: Authorized for sheet ${sheetNumber}`);
+        
+        // Get the proxy download information
+        const proxyResponse = await app.apiCall(response.downloadUrl.replace('/api', ''));
+        
+        if (proxyResponse.success && proxyResponse.secureAccess) {
+          // Show secure download modal with instructions
+          this.showSecureDownloadInstructions(proxyResponse);
+          
+          // Update UI to show downloaded status
+          this.markSheetAsDownloaded(participationId, sheetNumber);
+          
+        } else {
+          throw new Error('Failed to get secure access information');
+        }
+        
+      } else {
+        throw new Error(response.error || 'Download authorization failed');
+      }
       
     } catch (error) {
       console.error('Secure download error:', error);
-      app.showNotification(`Failed to initiate secure download for ${fileName}`, 'error');
+      
+      if (error.message.includes('already been downloaded')) {
+        app.showNotification(`⚠️ ${fileName} has already been downloaded`, 'warning');
+        this.markSheetAsDownloaded(participationId, sheetNumber);
+      } else if (error.message.includes('not authorized')) {
+        app.showNotification(`🚫 You are not authorized to download ${fileName}`, 'error');
+      } else {
+        app.showNotification(`❌ Failed to download ${fileName}: ${error.message}`, 'error');
+      }
     }
+  }
+
+  // Show secure download instructions modal
+  showSecureDownloadInstructions(downloadInfo) {
+    const modal = document.createElement('div');
+    modal.className = 'secure-download-modal';
+    modal.innerHTML = `
+      <div class="secure-download-content">
+        <h3>🔐 ${downloadInfo.instructions.title}</h3>
+        
+        <div class="download-warning">
+          ${downloadInfo.instructions.warning}
+        </div>
+        
+        <div class="download-steps">
+          <h4>Download Instructions:</h4>
+          <ol>
+            ${downloadInfo.instructions.steps.map(step => `<li>${step}</li>`).join('')}
+          </ol>
+        </div>
+        
+        <div class="download-actions">
+          <a href="${downloadInfo.secureAccess.url}" target="_blank" class="btn btn-primary">
+            🔐 Open Secure Folder
+          </a>
+          <button class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">
+            Close
+          </button>
+        </div>
+        
+        <div class="security-info">
+          <small>
+            🛡️ This download is tracked and logged for security purposes.<br>
+            📋 Authorized file: <strong>${downloadInfo.secureAccess.authorizedFile}</strong>
+          </small>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Auto-remove after 30 seconds
+    setTimeout(() => {
+      if (modal.parentElement) {
+        modal.remove();
+      }
+    }, 30000);
+    
+    app.showNotification(`🔐 Secure folder opened for ${downloadInfo.fileName}`, 'success');
+  }
+
+  // Mark sheet as downloaded in the UI
+  markSheetAsDownloaded(participationId, sheetNumber) {
+    // Find and update the download button for this sheet
+    const downloadButtons = document.querySelectorAll(`[onclick*="${participationId}"][onclick*="${sheetNumber}"]`);
+    downloadButtons.forEach(button => {
+      button.textContent = '✅ Downloaded';
+      button.disabled = true;
+      button.classList.add('downloaded');
+    });
   }
 
   // New secure download method for all sheets

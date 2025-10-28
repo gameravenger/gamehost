@@ -1,5 +1,110 @@
 /* User Dashboard Styles */
 
+/* Secure Download Modal */
+.secure-download-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.3s ease;
+}
+
+.secure-download-content {
+  background: var(--card-bg);
+  border-radius: 15px;
+  padding: 30px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  border: 2px solid var(--primary-color);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.secure-download-content h3 {
+  color: var(--primary-color);
+  margin-bottom: 20px;
+  text-align: center;
+  font-size: 1.5rem;
+}
+
+.download-warning {
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+  color: #ffc107;
+  font-weight: 600;
+  text-align: center;
+}
+
+.download-steps {
+  margin-bottom: 25px;
+}
+
+.download-steps h4 {
+  color: var(--text-light);
+  margin-bottom: 15px;
+  font-size: 1.1rem;
+}
+
+.download-steps ol {
+  color: var(--text-muted);
+  padding-left: 20px;
+}
+
+.download-steps li {
+  margin-bottom: 8px;
+  line-height: 1.5;
+}
+
+.download-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.security-info {
+  text-align: center;
+  padding: 15px;
+  background: rgba(255, 107, 53, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 107, 53, 0.3);
+}
+
+.security-info small {
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* Downloaded button state */
+.btn-download-sheet.downloaded {
+  background: #28a745 !important;
+  color: white !important;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.btn-download-sheet:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 /* Login Required Screen */
 .login-required-screen {
   min-height: calc(100vh - 80px);

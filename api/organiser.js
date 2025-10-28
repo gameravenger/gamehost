@@ -365,6 +365,103 @@ router.put('/games/:id/sheet-files', authenticateOrganiser, async (req, res) => 
   }
 });
 
+// AUTO-SCAN GOOGLE DRIVE FOLDER AND POPULATE INDIVIDUAL SHEET FILES
+router.post('/games/:id/auto-scan-sheets', authenticateOrganiser, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`🔍 AUTO-SCAN: Starting auto-scan for game ${id}`);
+
+    // Get organiser ID
+    const { data: organiser } = await supabaseAdmin
+      .from('organisers')
+      .select('id')
+      .eq('user_id', req.user.userId)
+      .single();
+
+    // Verify game belongs to organiser
+    const { data: existingGame } = await supabaseAdmin
+      .from('games')
+      .select('organiser_id, name, sheets_folder_id')
+      .eq('id', id)
+      .single();
+
+    if (!existingGame || existingGame.organiser_id !== organiser.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (!existingGame.sheets_folder_id) {
+      return res.status(400).json({ 
+        error: 'No Google Drive folder ID configured for this game',
+        action: 'Please set the sheets_folder_id first'
+      });
+    }
+
+    console.log(`🔍 AUTO-SCAN: Scanning folder ${existingGame.sheets_folder_id} for game ${existingGame.name}`);
+
+    // Import Google Drive manager
+    const googleDrive = require('../config/google-drive');
+    
+    // Scan the folder for individual sheet files
+    const scanResult = await googleDrive.scanFolderForSheets(existingGame.sheets_folder_id);
+
+    if (!scanResult.success) {
+      return res.status(500).json({
+        error: 'Failed to scan Google Drive folder',
+        details: scanResult.error
+      });
+    }
+
+    // Convert scan result to individual_sheet_files format
+    const individualSheetFiles = {};
+    Object.entries(scanResult.sheetFiles).forEach(([sheetNumber, fileInfo]) => {
+      individualSheetFiles[sheetNumber] = fileInfo.fileId;
+    });
+
+    console.log(`✅ AUTO-SCAN: Found ${Object.keys(individualSheetFiles).length} sheets in folder`);
+
+    // Update the game with auto-scanned individual sheet files
+    const { data: updatedGame, error } = await supabaseAdmin
+      .from('games')
+      .update({ 
+        individual_sheet_files: individualSheetFiles,
+        auto_scanned_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select('id, name, individual_sheet_files, auto_scanned_at')
+      .single();
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    console.log(`🎯 AUTO-SCAN: Successfully configured ${Object.keys(individualSheetFiles).length} individual sheet files`);
+
+    res.json({
+      success: true,
+      message: 'SECURITY UPDATE: Individual sheet files auto-configured successfully',
+      game: updatedGame,
+      scanResult: {
+        totalFilesFound: scanResult.totalFiles,
+        sheetsConfigured: Object.keys(individualSheetFiles).length,
+        scannedAt: scanResult.scannedAt,
+        placeholder: scanResult.placeholder || false
+      },
+      secureDownloadsEnabled: true,
+      securityNote: 'Users can now only download their specific approved sheets - NO folder access',
+      businessProtection: 'Auto-scanning prevents business losses by eliminating folder exposure'
+    });
+
+  } catch (error) {
+    console.error('💥 Error in auto-scan:', error);
+    res.status(500).json({ 
+      error: 'Auto-scan failed',
+      details: error.message 
+    });
+  }
+});
+
 // Get game participants for verification
 router.get('/games/:id/participants', authenticateOrganiser, async (req, res) => {
   try {

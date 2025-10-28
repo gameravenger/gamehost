@@ -477,32 +477,18 @@ ERROR DETAILS:
       if (response.success && response.downloadUrl) {
         console.log(`✅ DOWNLOAD: Authorized for sheet ${sheetNumber}`);
         
-        // Check if this is temporary folder access or direct streaming
-        if (response.temporaryAccess) {
-          // Handle secure folder access with warnings
-          console.log(`⚠️ DOWNLOAD: Using temporary secure folder access`);
+        // Handle direct individual file access - NO folder exposure
+        console.log(`🔐 DOWNLOAD: Using direct individual file access`);
+        
+        // Get the direct file access information
+        const fileResponse = await app.apiCall(response.downloadUrl.replace('/api', ''));
+        
+        if (fileResponse.success && fileResponse.directFileUrl) {
+          console.log(`✅ DOWNLOAD: Got direct file URL for sheet ${sheetNumber}`);
           
-          // Get the secure folder access information
-          const folderResponse = await app.apiCall(response.downloadUrl.replace('/api', ''));
-          
-          if (folderResponse.success && folderResponse.secureAccess) {
-            // Show secure download instructions with warnings
-            this.showSecureFolderInstructions(folderResponse);
-            
-            // Update UI to show downloaded status
-            this.markSheetAsDownloaded(participationId, sheetNumber);
-            
-            app.showNotification(`⚠️ Secure folder access provided for ${fileName}`, 'warning');
-          } else {
-            throw new Error('Failed to get secure folder access');
-          }
-        } else {
-          // Handle direct streaming
-          console.log(`📥 DOWNLOAD: Using direct streaming`);
-          
-          // Create download link that goes through our secure proxy
+          // Create direct download link to individual file
           const link = document.createElement('a');
-          link.href = response.downloadUrl;
+          link.href = fileResponse.directFileUrl;
           link.download = fileName;
           link.style.display = 'none';
           
@@ -514,7 +500,9 @@ ERROR DETAILS:
           // Update UI to show downloaded status
           this.markSheetAsDownloaded(participationId, sheetNumber);
           
-          app.showNotification(`✅ ${fileName} downloaded successfully`, 'success');
+          app.showNotification(`✅ ${fileName} downloaded successfully (Direct File)`, 'success');
+        } else {
+          throw new Error('Failed to get direct file access');
         }
         
       } else {
@@ -529,9 +517,9 @@ ERROR DETAILS:
         this.markSheetAsDownloaded(participationId, sheetNumber);
       } else if (error.message.includes('not authorized')) {
         app.showNotification(`🚫 You are not authorized to download ${fileName}`, 'error');
-      } else if (error.message.includes('not configured') || error.message.includes('not available')) {
-        app.showNotification(`🔒 Secure downloads not configured for this game yet`, 'warning');
-        this.showSecurityConfigurationNotice();
+      } else if (error.message.includes('not configured') || error.message.includes('not available') || error.message.includes('auto-scanning')) {
+        app.showNotification(`🔒 Game requires auto-scanning to enable secure downloads`, 'warning');
+        this.showAutoScanRequiredNotice();
       } else {
         app.showNotification(`❌ Failed to download ${fileName}: ${error.message}`, 'error');
       }
@@ -584,6 +572,53 @@ ERROR DETAILS:
         modal.remove();
       }
     }, 45000);
+  }
+
+  // Show auto-scan required notice
+  showAutoScanRequiredNotice() {
+    const modal = document.createElement('div');
+    modal.className = 'secure-download-modal';
+    modal.innerHTML = `
+      <div class="secure-download-content">
+        <h3>🔍 Auto-Scan Required for Secure Downloads</h3>
+        
+        <div class="download-warning">
+          ⚠️ This game needs auto-scanning to enable individual sheet downloads
+        </div>
+        
+        <div class="download-steps">
+          <h4>Why auto-scanning is required:</h4>
+          <ul>
+            <li>🛡️ <strong>Business Protection:</strong> Prevents users from accessing entire folders</li>
+            <li>🔐 <strong>Individual File Access:</strong> Each sheet gets its own secure download link</li>
+            <li>💰 <strong>Revenue Protection:</strong> Users can only download sheets they paid for</li>
+            <li>⚡ <strong>Automatic Setup:</strong> System scans folder and configures individual file access</li>
+          </ul>
+        </div>
+        
+        <div class="download-actions">
+          <button class="btn btn-primary" onclick="this.parentElement.parentElement.parentElement.remove()">
+            I Understand
+          </button>
+        </div>
+        
+        <div class="security-info">
+          <small>
+            🛡️ Auto-scanning protects your business from revenue losses.<br>
+            📋 Contact the game organizer to enable auto-scanning for this game.
+          </small>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Auto-remove after 20 seconds
+    setTimeout(() => {
+      if (modal.parentElement) {
+        modal.remove();
+      }
+    }, 20000);
   }
 
   // Show security configuration notice for games not yet configured

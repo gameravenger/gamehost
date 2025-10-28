@@ -708,14 +708,55 @@ router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, (req, res, 
   }
   
   const googleDriveUpload = createGoogleDriveUpload();
-  googleDriveUpload.array('files', 100)(req, res, next);
+  googleDriveUpload.array('files', 100)(req, res, (err) => {
+    if (err) {
+      console.error('❌ MULTER ERROR:', err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({
+          error: 'File too large',
+          message: 'Maximum file size is 50MB'
+        });
+      } else if (err.code === 'LIMIT_FILE_COUNT') {
+        return res.status(400).json({
+          error: 'Too many files',
+          message: 'Maximum 100 files allowed'
+        });
+      } else if (err.message && err.message.includes('File type not supported')) {
+        return res.status(400).json({
+          error: 'Invalid file type',
+          message: err.message
+        });
+      } else {
+        return res.status(500).json({
+          error: 'Upload failed',
+          message: err.message || 'File upload error'
+        });
+      }
+    }
+    next();
+  });
 }, async (req, res) => {
   try {
     const { gameId } = req.params;
     const { fileType } = req.body; // 'sheets', 'banners', 'images'
     const uploadedFiles = req.files;
 
-    console.log(`☁️ DRIVE UPLOAD: Received ${uploadedFiles.length} ${fileType} for game ${gameId}`);
+    // Validate required parameters
+    if (!gameId) {
+      return res.status(400).json({
+        error: 'Game ID is required',
+        message: 'Please provide a valid game ID'
+      });
+    }
+
+    if (!fileType || !['sheets', 'banners', 'images'].includes(fileType)) {
+      return res.status(400).json({
+        error: 'Invalid file type',
+        message: 'File type must be one of: sheets, banners, images'
+      });
+    }
+
+    console.log(`☁️ DRIVE UPLOAD: Received ${uploadedFiles?.length || 0} ${fileType} for game ${gameId}`);
 
     if (!uploadedFiles || uploadedFiles.length === 0) {
       return res.status(400).json({
@@ -725,20 +766,39 @@ router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, (req, res, 
     }
 
     // Verify game belongs to organiser
-    const { data: organiser } = await supabaseAdmin
+    const { data: organiser, error: organiserError } = await supabaseAdmin
       .from('organisers')
       .select('id')
       .eq('user_id', req.user.userId)
       .single();
 
-    const { data: game } = await supabaseAdmin
+    if (organiserError || !organiser) {
+      console.error('❌ ORGANISER LOOKUP ERROR:', organiserError);
+      return res.status(404).json({
+        error: 'Organiser not found',
+        message: 'Please ensure you are registered as an organiser'
+      });
+    }
+
+    const { data: game, error: gameError } = await supabaseAdmin
       .from('games')
       .select('organiser_id, name')
       .eq('id', gameId)
       .single();
 
-    if (!game || game.organiser_id !== organiser.id) {
-      return res.status(403).json({ error: 'Access denied' });
+    if (gameError || !game) {
+      console.error('❌ GAME LOOKUP ERROR:', gameError);
+      return res.status(404).json({
+        error: 'Game not found',
+        message: 'Please ensure the game exists and you have access to it'
+      });
+    }
+
+    if (game.organiser_id !== organiser.id) {
+      return res.status(403).json({
+        error: 'Access denied',
+        message: 'You do not have permission to upload files for this game'
+      });
     }
 
     // Process uploaded files

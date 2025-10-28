@@ -406,15 +406,25 @@
                 this.selectedFiles.forEach((file, index) => {
                     const fileItem = document.createElement('div');
                     fileItem.className = 'file-item';
-                    fileItem.innerHTML = `
-                        <div>
-                            <strong>${file.name}</strong><br>
-                            <small>${(file.size / 1024 / 1024).toFixed(2)} MB - ${file.type}</small>
-                        </div>
-                        <button class="btn btn-danger btn-sm" onclick="driveUpload.removeFile(${index})">
-                            🗑️ Remove
-                        </button>
-                    `;
+                    
+                    // Create elements safely to prevent XSS
+                    const fileInfo = document.createElement('div');
+                    const fileName = document.createElement('strong');
+                    fileName.textContent = file.name; // Safe text content
+                    const fileDetails = document.createElement('small');
+                    fileDetails.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB - ${file.type}`;
+                    
+                    fileInfo.appendChild(fileName);
+                    fileInfo.appendChild(document.createElement('br'));
+                    fileInfo.appendChild(fileDetails);
+                    
+                    const removeBtn = document.createElement('button');
+                    removeBtn.className = 'btn btn-danger btn-sm';
+                    removeBtn.textContent = '🗑️ Remove';
+                    removeBtn.onclick = () => this.removeFile(index);
+                    
+                    fileItem.appendChild(fileInfo);
+                    fileItem.appendChild(removeBtn);
                     this.fileList.appendChild(fileItem);
                 });
             }
@@ -512,7 +522,22 @@
             }
 
             async uploadFiles() {
-                if (this.selectedFiles.length === 0) return;
+                if (this.selectedFiles.length === 0) {
+                    app.showNotification('Please select files to upload', 'warning');
+                    return;
+                }
+
+                if (!this.gameId) {
+                    app.showNotification('Game ID is missing. Please go back and try again.', 'error');
+                    return;
+                }
+
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    app.showNotification('Please login to upload files', 'error');
+                    window.location.href = '/login.html';
+                    return;
+                }
 
                 try {
                     this.uploadBtn.disabled = true;
@@ -521,6 +546,13 @@
 
                     const formData = new FormData();
                     formData.append('fileType', this.selectedFileType);
+                    
+                    // Validate files before upload
+                    for (const file of this.selectedFiles) {
+                        if (!this.validateFile(file)) {
+                            throw new Error(`Invalid file: ${file.name}`);
+                        }
+                    }
                     
                     this.selectedFiles.forEach(file => {
                         formData.append('files', file);
@@ -531,7 +563,7 @@
                     const response = await fetch(`/api/organiser/games/${this.gameId}/upload-to-drive`, {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${localStorage.getItem('token')}`
+                            'Authorization': `Bearer ${token}`
                         },
                         body: formData
                     });

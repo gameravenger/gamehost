@@ -1294,7 +1294,7 @@ router.get('/sheets/secure-token/:participationId/:sheetNumber', authenticateTok
 
     // Mark as downloaded BEFORE providing token
     const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
-    await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from('game_participants')
       .update({
         downloaded_sheet_numbers: updatedDownloadedSheets,
@@ -1302,6 +1302,14 @@ router.get('/sheets/secure-token/:participationId/:sheetNumber', authenticateTok
         updated_at: new Date().toISOString()
       })
       .eq('id', participationId);
+
+    if (updateError) {
+      console.error('❌ DATABASE UPDATE ERROR:', updateError);
+      return res.status(500).json({
+        error: 'Failed to update download status',
+        message: 'Please try again later'
+      });
+    }
 
     console.log(`✅ SECURE TOKEN: Providing download URL for ${fileInfo.fileName} to user ${userId}`);
 

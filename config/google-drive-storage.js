@@ -29,6 +29,11 @@ class GoogleDriveStorage {
   // Compress image files
   async compressImage(inputPath, outputPath, quality = 80) {
     try {
+      // Check if input file exists
+      if (!fs.existsSync(inputPath)) {
+        throw new Error(`Input file does not exist: ${inputPath}`);
+      }
+      
       const stats = fs.statSync(inputPath);
       const originalSize = stats.size;
 
@@ -70,6 +75,11 @@ class GoogleDriveStorage {
   // Compress PDF files (basic optimization)
   async compressPDF(inputPath, outputPath) {
     try {
+      // Check if input file exists
+      if (!fs.existsSync(inputPath)) {
+        throw new Error(`Input file does not exist: ${inputPath}`);
+      }
+      
       // For now, just copy the file (PDF compression requires more complex libraries)
       // In production, you might want to use pdf-lib or similar
       fs.copyFileSync(inputPath, outputPath);
@@ -294,6 +304,15 @@ class MulterGoogleDriveStorage {
         } else if (file.mimetype === 'application/pdf') {
           compressionInfo = await this.driveStorage.compressPDF(tempFilePath, compressedFilePath);
           finalFilePath = compressedFilePath;
+        } else {
+          // For other file types, use original file
+          finalFilePath = tempFilePath;
+          compressionInfo = {
+            originalSize: fs.statSync(tempFilePath).size,
+            compressedSize: fs.statSync(tempFilePath).size,
+            compressionRatio: 0,
+            outputPath: tempFilePath
+          };
         }
 
         // Upload to Google Drive

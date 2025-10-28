@@ -115,9 +115,14 @@ app.listen(PORT, () => {
   
   // Initialize Google Drive cleanup scheduler
   if (process.env.GOOGLE_SERVICE_ACCOUNT_KEY && process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID) {
-    console.log('☁️ Initializing Google Drive storage cleanup scheduler...');
-    new CleanupScheduler();
-    console.log('✅ Google Drive auto-cleanup enabled (2-day retention)');
+    try {
+      console.log('☁️ Initializing Google Drive storage cleanup scheduler...');
+      new CleanupScheduler();
+      console.log('✅ Google Drive auto-cleanup enabled (2-day retention)');
+    } catch (error) {
+      console.error('❌ Failed to initialize Google Drive cleanup scheduler:', error.message);
+      console.log('⚠️ Cleanup scheduler disabled - manual cleanup still available');
+    }
   } else {
     console.log('⚠️ Google Drive storage not configured - skipping cleanup scheduler');
     console.log('📖 See GOOGLE_DRIVE_STORAGE_SETUP.md for setup instructions');

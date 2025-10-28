@@ -266,10 +266,12 @@
                             </div>
                             
                             <div class="form-group">
-                                <label for="bannerImageUrl">Banner Image</label>
-                                <div id="bannerImageUpload"></div>
-                                <input type="url" id="bannerImageUrl" name="bannerImageUrl" placeholder="Image URL will appear here" readonly style="margin-top: 10px;">
-                                <small>Upload your banner image (Recommended: 400x600px portrait)</small>
+                                <label for="bannerImageUrl">Banner Image URL</label>
+                                <input type="url" id="bannerImageUrl" name="bannerImageUrl" placeholder="https://your-canva-image-url.com/image.jpg" required>
+                                <small>Paste your Canva image URL here (Recommended: 400x600px portrait)</small>
+                                <div class="image-preview" id="bannerPreview" style="display: none; margin-top: 10px;">
+                                    <img id="bannerPreviewImg" style="max-width: 200px; max-height: 300px; border-radius: 8px; border: 1px solid rgba(255, 107, 53, 0.3);">
+                                </div>
                             </div>
                             
                             <div class="form-group">
@@ -313,10 +315,12 @@
                         <div class="form-section">
                             <h3>Payment & Meeting</h3>
                             <div class="form-group">
-                                <label for="paymentQrCodeUrl">Payment QR Code</label>
-                                <div id="qrCodeUpload"></div>
-                                <input type="url" id="paymentQrCodeUrl" name="paymentQrCodeUrl" placeholder="QR code URL will appear here" readonly style="margin-top: 10px;" required>
-                                <small>Upload your UPI QR code image for payments</small>
+                                <label for="paymentQrCodeUrl">Payment QR Code URL</label>
+                                <input type="url" id="paymentQrCodeUrl" name="paymentQrCodeUrl" placeholder="https://your-canva-qr-code-url.com/qr.jpg" required>
+                                <small>Paste your UPI QR code image URL here (Recommended: 300x300px minimum)</small>
+                                <div class="image-preview" id="qrPreview" style="display: none; margin-top: 10px;">
+                                    <img id="qrPreviewImg" style="max-width: 150px; max-height: 150px; border-radius: 8px; border: 1px solid rgba(255, 107, 53, 0.3);">
+                                </div>
                             </div>
                             
                             <div class="form-row">

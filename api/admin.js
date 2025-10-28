@@ -88,12 +88,21 @@ router.put('/organisers/:id/status', authenticateAdmin, async (req, res) => {
     const { id } = req.params;
     const { approved } = req.body;
 
+    // For rejected organisers, we'll use a custom field to track rejection
+    // Since we can't easily add a new column, we'll use a workaround
+    const updateData = {
+      is_approved: approved,
+      updated_at: new Date().toISOString()
+    };
+
+    // If rejected, we'll set monthly_fee_paid to null as a marker for rejected status
+    if (!approved) {
+      updateData.monthly_fee_paid = null; // Use this as a rejection marker
+    }
+
     const { data: organiser, error } = await supabaseAdmin
       .from('organisers')
-      .update({
-        is_approved: approved,
-        updated_at: new Date().toISOString()
-      })
+      .update(updateData)
       .eq('id', id)
       .select(`
         *,
@@ -130,12 +139,13 @@ router.put('/organisers/:id/status', authenticateAdmin, async (req, res) => {
   }
 });
 
-// Get all users
+// Get all users (excluding organisers and admins)
 router.get('/users', authenticateAdmin, async (req, res) => {
   try {
     const { data: users, error } = await supabaseAdmin
       .from('users')
       .select('id, username, email, phone, role, is_active, created_at')
+      .eq('role', 'user') // Only return regular users, not organisers or admins
       .order('created_at', { ascending: false });
 
     if (error) {

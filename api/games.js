@@ -461,9 +461,31 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
     }
 
     // Check if user selected this specific sheet
-    if (!participation.selected_sheet_numbers.includes(parseInt(sheetNumber))) {
+    const selectedSheets = participation.selected_sheet_numbers || [];
+    const requestedSheet = parseInt(sheetNumber);
+    
+    console.log('🔍 Sheet validation:', {
+      selectedSheets: selectedSheets,
+      requestedSheet: requestedSheet,
+      selectedSheetsType: typeof selectedSheets[0],
+      requestedSheetType: typeof requestedSheet
+    });
+    
+    // Convert all selected sheets to integers for comparison
+    const selectedSheetsAsNumbers = selectedSheets.map(sheet => 
+      typeof sheet === 'string' ? parseInt(sheet) : sheet
+    );
+    
+    if (!selectedSheetsAsNumbers.includes(requestedSheet)) {
+      console.log('❌ Sheet not in selection:', {
+        selectedSheetsAsNumbers,
+        requestedSheet,
+        participationId: participation.id
+      });
       return res.status(403).json({ error: 'Sheet not in your selection' });
     }
+    
+    console.log('✅ Sheet validation passed');
 
     const game = participation.games;
     const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', sheetNumber);

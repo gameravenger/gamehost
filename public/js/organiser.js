@@ -208,37 +208,53 @@ class OrganiserManager {
     
     // Initialize image upload widgets when switching to create-game section
     if (section === 'create-game') {
-      setTimeout(() => this.initializeImageUploads(), 100);
+      setTimeout(() => this.initializeImagePreviews(), 100);
     }
   }
 
-  initializeImageUploads() {
-    // Initialize banner image upload
-    if (document.getElementById('bannerImageUpload') && !document.getElementById('bannerImageUpload').hasChildNodes()) {
-      imageUploadManager.createUploadWidget(
-        'bannerImageUpload',
-        (imageUrl) => {
-          document.getElementById('bannerImageUrl').value = imageUrl;
-          app.showNotification('✅ Banner image uploaded successfully!', 'success');
-        },
-        (error) => {
-          app.showNotification(`❌ Banner upload failed: ${error}`, 'error');
+  initializeImagePreviews() {
+    // Initialize banner image preview
+    const bannerInput = document.getElementById('bannerImageUrl');
+    const bannerPreview = document.getElementById('bannerPreview');
+    const bannerPreviewImg = document.getElementById('bannerPreviewImg');
+
+    if (bannerInput && bannerPreview && bannerPreviewImg) {
+      bannerInput.addEventListener('input', (e) => {
+        const url = e.target.value.trim();
+        if (url) {
+          bannerPreviewImg.onload = () => {
+            bannerPreview.style.display = 'block';
+          };
+          bannerPreviewImg.onerror = () => {
+            bannerPreview.style.display = 'none';
+          };
+          bannerPreviewImg.src = url;
+        } else {
+          bannerPreview.style.display = 'none';
         }
-      );
+      });
     }
 
-    // Initialize QR code upload
-    if (document.getElementById('qrCodeUpload') && !document.getElementById('qrCodeUpload').hasChildNodes()) {
-      imageUploadManager.createUploadWidget(
-        'qrCodeUpload',
-        (imageUrl) => {
-          document.getElementById('paymentQrCodeUrl').value = imageUrl;
-          app.showNotification('✅ QR code uploaded successfully!', 'success');
-        },
-        (error) => {
-          app.showNotification(`❌ QR code upload failed: ${error}`, 'error');
+    // Initialize QR code preview
+    const qrInput = document.getElementById('paymentQrCodeUrl');
+    const qrPreview = document.getElementById('qrPreview');
+    const qrPreviewImg = document.getElementById('qrPreviewImg');
+
+    if (qrInput && qrPreview && qrPreviewImg) {
+      qrInput.addEventListener('input', (e) => {
+        const url = e.target.value.trim();
+        if (url) {
+          qrPreviewImg.onload = () => {
+            qrPreview.style.display = 'block';
+          };
+          qrPreviewImg.onerror = () => {
+            qrPreview.style.display = 'none';
+          };
+          qrPreviewImg.src = url;
+        } else {
+          qrPreview.style.display = 'none';
         }
-      );
+      });
     }
   }
 

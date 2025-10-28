@@ -87,6 +87,22 @@ class AdminManager {
       e.preventDefault();
       this.saveSettings();
     });
+
+    // Form submissions
+    document.getElementById('addFeaturedForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handleAddFeatured(e);
+    });
+
+    document.getElementById('addAdForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handleAddAd(e);
+    });
+
+    document.getElementById('addNewsForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handleAddNews(e);
+    });
   }
 
   toggleSidebar() {
@@ -247,24 +263,43 @@ class AdminManager {
       return;
     }
 
-    tbody.innerHTML = organisers.map(organiser => `
-      <tr>
-        <td>${organiser.real_name}</td>
-        <td>${organiser.organiser_name}</td>
-        <td>${organiser.users?.email || 'N/A'}</td>
-        <td>${organiser.personal_phone}</td>
-        <td><span class="status-badge status-${organiser.is_approved ? 'approved' : 'pending'}">${organiser.is_approved ? 'Approved' : 'Pending'}</span></td>
-        <td>${app.formatDate(organiser.created_at)}</td>
-        <td>
-          ${!organiser.is_approved ? `
-            <button class="btn btn-success btn-xs" onclick="adminManager.approveOrganiser('${organiser.id}', true)">Approve</button>
-            <button class="btn btn-danger btn-xs" onclick="adminManager.approveOrganiser('${organiser.id}', false)">Reject</button>
-          ` : `
-            <button class="btn btn-secondary btn-xs" onclick="adminManager.viewOrganiser('${organiser.id}')">View</button>
-          `}
-        </td>
-      </tr>
-    `).join('');
+    tbody.innerHTML = organisers.map(organiser => {
+      // Determine status: approved, rejected, or pending
+      let status, statusClass, actions;
+      
+      if (organiser.is_approved) {
+        status = 'Approved';
+        statusClass = 'approved';
+        actions = `<button class="btn btn-secondary btn-xs" onclick="adminManager.viewOrganiser('${organiser.id}')">View</button>`;
+      } else if (organiser.monthly_fee_paid === null) {
+        // Using monthly_fee_paid = null as rejection marker
+        status = 'Rejected';
+        statusClass = 'rejected';
+        actions = `
+          <button class="btn btn-success btn-xs" onclick="adminManager.approveOrganiser('${organiser.id}', true)">Approve</button>
+          <button class="btn btn-secondary btn-xs" onclick="adminManager.viewOrganiser('${organiser.id}')">View</button>
+        `;
+      } else {
+        status = 'Pending';
+        statusClass = 'pending';
+        actions = `
+          <button class="btn btn-success btn-xs" onclick="adminManager.approveOrganiser('${organiser.id}', true)">Approve</button>
+          <button class="btn btn-danger btn-xs" onclick="adminManager.approveOrganiser('${organiser.id}', false)">Reject</button>
+        `;
+      }
+      
+      return `
+        <tr>
+          <td>${organiser.real_name}</td>
+          <td>${organiser.organiser_name}</td>
+          <td>${organiser.users?.email || 'N/A'}</td>
+          <td>${organiser.personal_phone}</td>
+          <td><span class="status-badge status-${statusClass}">${status}</span></td>
+          <td>${app.formatDate(organiser.created_at)}</td>
+          <td>${actions}</td>
+        </tr>
+      `;
+    }).join('');
   }
 
   async approveOrganiser(organiserId, approved) {
@@ -376,6 +411,201 @@ class AdminManager {
 
   viewGame(gameId) {
     window.open(`/game/${gameId}`, '_blank');
+  }
+
+  // Featured Games Management
+  showAddFeaturedModal(type) {
+    const modal = document.getElementById('addFeaturedModal');
+    const title = document.getElementById('featuredModalTitle');
+    const form = document.getElementById('addFeaturedForm');
+    
+    title.textContent = type === 'featured' ? 'Add Featured Game' : 'Add Top Game';
+    form.setAttribute('data-type', type);
+    
+    // Load available games
+    this.loadAvailableGames();
+    
+    modal.style.display = 'block';
+  }
+
+  async loadAvailableGames() {
+    try {
+      const response = await app.apiCall('/admin/games');
+      const select = document.getElementById('featuredGameSelect');
+      
+      select.innerHTML = '<option value="">Select a game...</option>' + 
+        response.games.map(game => 
+          `<option value="${game.id}">${game.name} (${game.status})</option>`
+        ).join('');
+        
+    } catch (error) {
+      console.error('Error loading games:', error);
+    }
+  }
+
+  // Sponsored Ads Management
+  showAddAdModal() {
+    const modal = document.getElementById('addAdModal');
+    modal.style.display = 'block';
+  }
+
+  // News Banner Management
+  showAddNewsModal() {
+    const modal = document.getElementById('addNewsModal');
+    modal.style.display = 'block';
+  }
+
+  // Form handlers
+  async handleAddFeatured(e) {
+    try {
+      const form = e.target;
+      const formData = new FormData(form);
+      const type = form.getAttribute('data-type');
+      
+      const gameId = formData.get('gameId');
+      const order = formData.get('order');
+      
+      if (!gameId) {
+        app.showNotification('Please select a game', 'error');
+        return;
+      }
+
+      const endpoint = type === 'featured' ? '/admin/featured-games' : '/admin/top-games';
+      
+      await app.apiCall(endpoint, 'POST', {
+        gameId: gameId,
+        order: parseInt(order) || 1
+      });
+
+      app.showNotification(`Game added to ${type} successfully`, 'success');
+      closeAddFeaturedModal();
+      
+      // Reload the appropriate list
+      if (type === 'featured') {
+        this.loadFeaturedGames();
+      } else {
+        this.loadTopGames();
+      }
+      
+    } catch (error) {
+      app.showNotification(error.message || 'Failed to add game', 'error');
+    }
+  }
+
+  async handleAddAd(e) {
+    try {
+      const formData = new FormData(e.target);
+      
+      await app.apiCall('/admin/sponsored-ads', 'POST', {
+        title: formData.get('title'),
+        bannerImageUrl: formData.get('bannerImageUrl'),
+        linkUrl: formData.get('linkUrl'),
+        order: parseInt(formData.get('order')) || 1
+      });
+
+      app.showNotification('Sponsored ad added successfully', 'success');
+      closeAddAdModal();
+      this.loadSponsoredAds();
+      
+    } catch (error) {
+      app.showNotification(error.message || 'Failed to add sponsored ad', 'error');
+    }
+  }
+
+  async handleAddNews(e) {
+    try {
+      const formData = new FormData(e.target);
+      
+      await app.apiCall('/admin/news-banner', 'POST', {
+        text: formData.get('text'),
+        linkUrl: formData.get('linkUrl'),
+        order: parseInt(formData.get('order')) || 1
+      });
+
+      app.showNotification('News item added successfully', 'success');
+      closeAddNewsModal();
+      this.loadNews();
+      
+    } catch (error) {
+      app.showNotification(error.message || 'Failed to add news item', 'error');
+    }
+  }
+
+  // Load functions for the new content
+  async loadFeaturedGames() {
+    try {
+      const response = await app.apiCall('/admin/featured-games');
+      // Render featured games list
+      const list = document.getElementById('featuredGamesList');
+      if (list && response.games) {
+        list.innerHTML = response.games.map(game => `
+          <div class="featured-item">
+            <span>${game.name} (Order: ${game.featured_order})</span>
+            <button class="btn btn-danger btn-xs" onclick="adminManager.removeFeatured('${game.id}', 'featured')">Remove</button>
+          </div>
+        `).join('');
+      }
+    } catch (error) {
+      console.error('Error loading featured games:', error);
+    }
+  }
+
+  async loadTopGames() {
+    try {
+      const response = await app.apiCall('/admin/top-games');
+      // Render top games list
+      const list = document.getElementById('topGamesList');
+      if (list && response.games) {
+        list.innerHTML = response.games.map(game => `
+          <div class="featured-item">
+            <span>${game.name} (Order: ${game.top_game_order})</span>
+            <button class="btn btn-danger btn-xs" onclick="adminManager.removeFeatured('${game.id}', 'top')">Remove</button>
+          </div>
+        `).join('');
+      }
+    } catch (error) {
+      console.error('Error loading top games:', error);
+    }
+  }
+
+  async loadSponsoredAds() {
+    try {
+      const response = await app.apiCall('/admin/sponsored-ads');
+      // Render sponsored ads
+      const grid = document.getElementById('adsGrid');
+      if (grid && response.ads) {
+        grid.innerHTML = response.ads.map(ad => `
+          <div class="ad-item">
+            <img src="${ad.banner_image_url}" alt="${ad.title}" style="width: 100px; height: 60px; object-fit: cover;">
+            <div>
+              <h4>${ad.title}</h4>
+              <p>Order: ${ad.order}</p>
+            </div>
+            <button class="btn btn-danger btn-xs" onclick="adminManager.removeAd('${ad.id}')">Remove</button>
+          </div>
+        `).join('');
+      }
+    } catch (error) {
+      console.error('Error loading sponsored ads:', error);
+    }
+  }
+
+  async loadNews() {
+    try {
+      const response = await app.apiCall('/admin/news-banner');
+      // Render news items
+      const list = document.getElementById('newsList');
+      if (list && response.newsItems) {
+        list.innerHTML = response.newsItems.map(item => `
+          <div class="news-item">
+            <span>${item.text}</span>
+            <button class="btn btn-danger btn-xs" onclick="adminManager.removeNews('${item.id}')">Remove</button>
+          </div>
+        `).join('');
+      }
+    } catch (error) {
+      console.error('Error loading news items:', error);
+    }
   }
 }
 

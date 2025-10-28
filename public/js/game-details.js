@@ -292,16 +292,18 @@ class GameDetailsManager {
   }
 
   toggleSheetSelection(sheetNumber) {
-    const sheetElement = document.querySelector(`[data-sheet="${sheetNumber}"]`);
+    // Ensure sheetNumber is always an integer
+    const sheetNum = parseInt(sheetNumber);
+    const sheetElement = document.querySelector(`[data-sheet="${sheetNum}"]`);
     
-    if (this.selectedSheets.includes(sheetNumber)) {
+    if (this.selectedSheets.includes(sheetNum)) {
       // Remove from selection
-      this.selectedSheets = this.selectedSheets.filter(num => num !== sheetNumber);
+      this.selectedSheets = this.selectedSheets.filter(num => num !== sheetNum);
       sheetElement.classList.remove('selected');
     } else {
       // Add to selection (limit based on selected count)
       if (this.selectedSheets.length < this.selectedSheetsCount) {
-        this.selectedSheets.push(sheetNumber);
+        this.selectedSheets.push(sheetNum);
         sheetElement.classList.add('selected');
       } else {
         app.showNotification(`You can only select ${this.selectedSheetsCount} sheets`, 'warning');

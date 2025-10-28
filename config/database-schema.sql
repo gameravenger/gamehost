@@ -77,6 +77,7 @@ CREATE TABLE game_participants (
     payment_status VARCHAR(20) DEFAULT 'pending' CHECK (payment_status IN ('pending', 'approved', 'rejected')),
     sheets_downloaded BOOLEAN DEFAULT false,
     selected_sheet_numbers TEXT[], -- Array of selected sheet numbers
+    downloaded_sheet_numbers INTEGER[] DEFAULT '{}', -- Array of downloaded sheet numbers for individual tracking
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
     -- UNIQUE constraint removed to allow multiple purchases per game per user

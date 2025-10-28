@@ -314,7 +314,8 @@ class DashboardManager {
     modalBody.innerHTML = `
       <div class="download-summary">
         <p>You have <strong>${totalSheets}</strong> sheets ready for download.</p>
-        <p class="download-warning">⚠️ <strong>Important:</strong> You can download each sheet only once. Save them to your device.</p>
+        <p class="download-warning">🔒 <strong>Security Notice:</strong> You can only download sheets you've purchased. Each sheet can only be downloaded once.</p>
+        <p class="download-info">📋 <strong>Your Purchased Sheets:</strong> ${sheets.map(s => s.sheetNumber).join(', ')}</p>
       </div>
       
       <div class="download-list">
@@ -323,21 +324,32 @@ class DashboardManager {
             <div class="download-item-info">
               <div class="download-item-name">Sheet ${sheet.sheetNumber}</div>
               <div class="download-item-details">${sheet.fileName}</div>
+              <div class="download-security">🔐 Secure Download Only</div>
             </div>
-            <button class="btn-download-sheet" onclick="dashboardManager.downloadSheet('${sheet.downloadUrl}', '${sheet.fileName}')">
-              📥 Download
+            <button class="btn-download-sheet" onclick="dashboardManager.downloadSecureSheet('${sheet.participationId || ''}', '${sheet.sheetNumber}', '${sheet.fileName}')">
+              🔐 Secure Download
             </button>
           </div>
         `).join('')}
       </div>
       
       <div class="download-actions">
-        <button class="btn btn-primary" onclick="dashboardManager.downloadAllSheets(${JSON.stringify(sheets).replace(/"/g, '&quot;')})">
-          📥 Download All Sheets
+        <button class="btn btn-primary" onclick="dashboardManager.downloadAllSecureSheets(${JSON.stringify(sheets).replace(/"/g, '&quot;')})">
+          🔐 Download All Sheets Securely
         </button>
         <button class="btn btn-secondary" onclick="closeDownloadModal()">
           Close
         </button>
+      </div>
+      
+      <div class="security-notice">
+        <h4>🛡️ Security Information:</h4>
+        <ul>
+          <li>✅ You can only download sheets you've purchased and paid for</li>
+          <li>🔒 Each download is individually authorized and tracked</li>
+          <li>⚠️ Attempting to download unauthorized sheets will be logged</li>
+          <li>📥 Downloads are limited to prevent abuse</li>
+        </ul>
       </div>
     `;
 
@@ -395,6 +407,48 @@ class DashboardManager {
     }
   }
 
+  // New secure download method for individual sheets
+  async downloadSecureSheet(participationId, sheetNumber, fileName) {
+    try {
+      app.showNotification(`🔐 Initiating secure download for ${fileName}...`, 'info');
+      
+      // Use the secure download page for maximum security
+      const secureUrl = `/secure-download?participation=${participationId}&sheet=${sheetNumber}`;
+      
+      // Open in new tab for secure download
+      window.open(secureUrl, '_blank');
+      
+      app.showNotification(`🔐 Secure download opened for ${fileName}`, 'success');
+      
+    } catch (error) {
+      console.error('Secure download error:', error);
+      app.showNotification(`Failed to initiate secure download for ${fileName}`, 'error');
+    }
+  }
+
+  // New secure download method for all sheets
+  async downloadAllSecureSheets(sheets) {
+    try {
+      app.showNotification('🔐 Starting secure download of all sheets...', 'info');
+      
+      // Download each sheet with a small delay using secure method
+      for (let i = 0; i < sheets.length; i++) {
+        setTimeout(() => {
+          this.downloadSecureSheet(sheets[i].participationId || '', sheets[i].sheetNumber, sheets[i].fileName);
+        }, i * 2000); // 2 second delay between downloads for security
+      }
+      
+      // Close modal after starting all downloads
+      setTimeout(() => {
+        this.closeDownloadModal();
+      }, 3000);
+      
+    } catch (error) {
+      app.showNotification('Failed to download all sheets securely', 'error');
+    }
+  }
+
+  // Legacy method - kept for backward compatibility but enhanced with security warnings
   async downloadAllSheets(sheets) {
     try {
       app.showNotification('Starting download of all sheets...', 'info');

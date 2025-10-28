@@ -164,29 +164,92 @@ class SecureDownloadManager {
     try {
       app.showNotification('🔐 Initiating secure download...', 'info');
       
-      // Try to create a direct download link
+      // Try to create a direct download link with enhanced security
       const response = await app.apiCall(`/games/sheets/direct-download/${this.participationId}/${this.sheetNumber}`);
       
-      if (response.directUrl) {
-        // Create download link
-        const link = document.createElement('a');
-        link.href = response.directUrl;
-        link.download = this.downloadData.fileName;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        app.showNotification('✅ Secure download started!', 'success');
+      if (response.success) {
+        if (response.secureUrl) {
+          // Redirect to the secure download URL
+          window.location.href = response.secureUrl;
+          app.showNotification('✅ Redirecting to secure download...', 'success');
+        } else {
+          // Show controlled folder access with strict warnings
+          this.showControlledAccess(response);
+        }
       } else {
-        // Fallback to folder with strong warning
-        this.openFolderWithWarning(this.downloadData.downloadOptions.folder);
+        app.showNotification('❌ Download authorization failed', 'error');
       }
       
     } catch (error) {
       console.error('Secure download error:', error);
-      app.showNotification('Secure download failed. Using folder access as fallback.', 'warning');
-      this.openFolderWithWarning(this.downloadData.downloadOptions.folder);
+      if (error.message.includes('already been downloaded')) {
+        app.showNotification('⚠️ This sheet has already been downloaded. Each sheet can only be downloaded once.', 'warning');
+      } else if (error.message.includes('not authorized')) {
+        app.showNotification('🚫 Access denied. You can only download sheets you have purchased.', 'error');
+      } else {
+        app.showNotification('❌ Secure download failed. Please contact support.', 'error');
+      }
+    }
+  }
+
+  showControlledAccess(downloadInfo) {
+    const confirmed = confirm(
+      `🔐 CONTROLLED ACCESS REQUIRED 🔐\n\n` +
+      `Sheet: ${downloadInfo.fileName}\n` +
+      `Authorization: ✅ VERIFIED\n\n` +
+      `STRICT SECURITY NOTICE:\n` +
+      `• You can ONLY download: ${downloadInfo.fileName}\n` +
+      `• This download is logged and monitored\n` +
+      `• Unauthorized access will result in account suspension\n` +
+      `• Each sheet can only be downloaded ONCE\n\n` +
+      `Remaining sheets you can download: ${downloadInfo.remainingSheets?.join(', ') || 'None'}\n\n` +
+      `Do you understand and agree to these terms?`
+    );
+
+    if (confirmed) {
+      // Only proceed with controlled access if user explicitly agrees
+      this.proceedWithControlledAccess(downloadInfo);
+    } else {
+      app.showNotification('Download cancelled by user', 'info');
+    }
+  }
+
+  proceedWithControlledAccess(downloadInfo) {
+    // Log the controlled access
+    this.logControlledAccess(downloadInfo);
+    
+    // Show final warning before opening folder
+    const finalConfirm = confirm(
+      `⚠️ FINAL WARNING ⚠️\n\n` +
+      `You are about to access the game folder.\n\n` +
+      `REMEMBER: You can ONLY download ${downloadInfo.fileName}\n\n` +
+      `Downloading any other file is:\n` +
+      `• A violation of terms of service\n` +
+      `• Unfair to other participants\n` +
+      `• Will result in immediate account suspension\n\n` +
+      `Click OK only if you will download ONLY your authorized sheet.`
+    );
+
+    if (finalConfirm) {
+      // Open with maximum security warnings
+      window.open(this.downloadData.downloadOptions.folder, '_blank');
+      app.showNotification(`🔐 Folder opened. Download ONLY: ${downloadInfo.fileName}`, 'warning');
+    }
+  }
+
+  async logControlledAccess(downloadInfo) {
+    try {
+      await app.apiCall('/games/sheets/log-folder-access', 'POST', {
+        participationId: this.participationId,
+        sheetNumber: this.sheetNumber,
+        gameId: this.gameId,
+        fileName: downloadInfo.fileName,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        accessType: 'controlled_folder_access'
+      });
+    } catch (error) {
+      console.error('Failed to log controlled access:', error);
     }
   }
 

@@ -625,7 +625,7 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
   }
 });
 
-// Direct download endpoint for secure downloads
+// Direct download endpoint for secure downloads with individual sheet tracking
 router.get('/sheets/direct-download/:participationId/:sheetNumber', authenticateToken, async (req, res) => {
   try {
     const { participationId, sheetNumber } = req.params;
@@ -648,28 +648,65 @@ router.get('/sheets/direct-download/:participationId/:sheetNumber', authenticate
       .single();
 
     if (error || !participation) {
-      return res.status(403).json({ error: 'Access denied' });
+      console.log(`🚫 SECURITY: Unauthorized download attempt by user ${userId} for participation ${participationId}`);
+      return res.status(403).json({ error: 'Access denied - You are not authorized for this download' });
     }
 
-    // Check if user is authorized for this sheet
+    // Check if user is authorized for this specific sheet
     const sheetNum = parseInt(sheetNumber);
     if (!participation.selected_sheet_numbers.includes(sheetNum)) {
-      return res.status(403).json({ error: 'You are not authorized to download this sheet' });
+      console.log(`🚫 SECURITY: User ${userId} attempted to download unauthorized sheet ${sheetNum}. Authorized sheets: ${participation.selected_sheet_numbers.join(', ')}`);
+      return res.status(403).json({ error: `You are not authorized to download sheet ${sheetNum}. Your authorized sheets are: ${participation.selected_sheet_numbers.join(', ')}` });
+    }
+
+    // Check if this specific sheet has already been downloaded
+    const downloadedSheets = participation.downloaded_sheet_numbers || [];
+    if (downloadedSheets.includes(sheetNum)) {
+      return res.status(409).json({ error: `Sheet ${sheetNum} has already been downloaded. Each sheet can only be downloaded once.` });
     }
 
     const game = participation.games;
     const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', sheetNumber);
 
+    // Log the authorized download attempt
+    console.log(`✅ AUTHORIZED DOWNLOAD: User ${userId} downloading sheet ${sheetNum} from game ${game.name}`);
+
+    // Mark this specific sheet as downloaded
+    const updatedDownloadedSheets = [...downloadedSheets, sheetNum];
+    await supabaseAdmin
+      .from('game_participants')
+      .update({ 
+        downloaded_sheet_numbers: updatedDownloadedSheets,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', participationId);
+
+    // Check if all sheets for this participation have been downloaded
+    const allSheetsDownloaded = participation.selected_sheet_numbers.every(sheet => 
+      updatedDownloadedSheets.includes(sheet)
+    );
+
+    if (allSheetsDownloaded) {
+      await supabaseAdmin
+        .from('game_participants')
+        .update({ 
+          sheets_downloaded: true,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', participationId);
+    }
+
     // In a real implementation, this would generate a direct download URL from Google Drive
-    // For now, return the folder URL with security warning
-    const folderUrl = `https://drive.google.com/drive/folders/${game.sheets_folder_id}`;
+    // For now, return the secure download page URL
+    const secureDownloadUrl = `/secure-download?participation=${participationId}&sheet=${sheetNumber}`;
     
     res.json({
       success: true,
-      directUrl: null, // Would be the actual file URL from Google Drive API
-      fallbackUrl: folderUrl,
+      secureUrl: secureDownloadUrl,
       fileName: fileName,
-      message: 'Direct download not available. Opening folder with security restrictions.'
+      sheetNumber: sheetNum,
+      message: `Authorized download for sheet ${sheetNum}`,
+      remainingSheets: participation.selected_sheet_numbers.filter(sheet => !updatedDownloadedSheets.includes(sheet))
     });
 
   } catch (error) {

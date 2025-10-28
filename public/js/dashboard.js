@@ -594,6 +594,13 @@ ERROR DETAILS:
             <li>💰 <strong>Revenue Protection:</strong> Users can only download sheets they paid for</li>
             <li>⚡ <strong>Automatic Setup:</strong> System scans folder and configures individual file access</li>
           </ul>
+          
+          <div class="organizer-action" style="margin-top: 15px; padding: 15px; background: rgba(255, 193, 7, 0.1); border-radius: 8px; border: 1px solid #ffc107;">
+            <h4 style="color: #856404; margin: 0 0 10px 0;">📢 For Game Organizer:</h4>
+            <p style="margin: 0; color: #856404;">
+              <strong>To enable downloads:</strong> Go to your organizer dashboard → Find this game → Click the <strong>"🔍 Auto-Scan"</strong> button. This will automatically configure secure downloads for all participants.
+            </p>
+          </div>
         </div>
         
         <div class="download-actions">

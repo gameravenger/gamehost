@@ -1070,6 +1070,18 @@ input[type="time"]:focus {
   background: #c82333;
 }
 
+.btn-warning {
+  background: #ffc107;
+  color: #212529;
+  border: none;
+  font-weight: 600;
+}
+
+.btn-warning:hover {
+  background: #e0a800;
+  transform: translateY(-1px);
+}
+
 .pending-more {
   text-align: center;
   padding: 10px;

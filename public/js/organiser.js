@@ -630,6 +630,11 @@ class OrganiserManager {
             <button class="btn btn-primary btn-sm" onclick="organiserManager.viewParticipants('${game.id}')">
               Participants
             </button>
+            ${this.needsAutoScan(game) ? `
+              <button class="btn btn-warning btn-sm" onclick="organiserManager.runAutoScan('${game.id}')" title="Enable secure downloads">
+                🔍 Auto-Scan
+              </button>
+            ` : ''}
             ${game.status === 'upcoming' ? `
               <button class="btn btn-success btn-sm" onclick="organiserManager.startGame('${game.id}')">
                 Start Game
@@ -647,6 +652,54 @@ class OrganiserManager {
         </div>
       </div>
     `).join('');
+  }
+
+  // Check if a game needs auto-scanning for secure downloads
+  needsAutoScan(game) {
+    // Game needs auto-scan if:
+    // 1. It has a sheets folder but no individual_sheet_files configured
+    // 2. Or individual_sheet_files is empty
+    return game.sheets_folder_id && 
+           (!game.individual_sheet_files || 
+            Object.keys(game.individual_sheet_files || {}).length === 0);
+  }
+
+  // Run auto-scan for a specific game
+  async runAutoScan(gameId) {
+    try {
+      const game = this.games.find(g => g.id === gameId);
+      if (!game) {
+        app.showNotification('Game not found', 'error');
+        return;
+      }
+
+      app.showNotification(`🔍 Starting auto-scan for ${game.name}...`, 'info');
+      
+      console.log(`🔍 AUTO-SCAN: Starting scan for game ${gameId}`);
+
+      const response = await app.apiCall(`/organiser/games/${gameId}/auto-scan-sheets`, 'POST');
+      
+      if (response.success) {
+        app.showNotification(`✅ Auto-scan completed for ${game.name}! Secure downloads enabled.`, 'success');
+        
+        // Update the game in our local data
+        const gameIndex = this.games.findIndex(g => g.id === gameId);
+        if (gameIndex !== -1) {
+          this.games[gameIndex].individual_sheet_files = response.individualSheetFiles || {};
+        }
+        
+        // Re-render the games to hide the auto-scan button
+        this.renderActiveGames(this.games);
+        
+        console.log(`✅ AUTO-SCAN: Completed for game ${game.name}, configured ${response.configuredSheets?.length || 0} sheets`);
+      } else {
+        throw new Error(response.error || 'Auto-scan failed');
+      }
+      
+    } catch (error) {
+      console.error('💥 AUTO-SCAN ERROR:', error);
+      app.showNotification(`❌ Auto-scan failed: ${error.message}`, 'error');
+    }
   }
 
   filterGames(status) {

@@ -174,6 +174,24 @@ class OrganiserManager {
       this.validateGoogleDriveFolder(e.target.value);
     });
 
+    // Show test button when folder URL is entered
+    document.getElementById('sheetsFolder')?.addEventListener('input', (e) => {
+      const testBtn = document.getElementById('testScanBtn');
+      if (e.target.value.trim()) {
+        testBtn.style.display = 'inline-block';
+      } else {
+        testBtn.style.display = 'none';
+      }
+    });
+
+    // Test scan button
+    document.getElementById('testScanBtn')?.addEventListener('click', () => {
+      const folderUrl = document.getElementById('sheetsFolder')?.value;
+      if (folderUrl) {
+        this.validateGoogleDriveFolder(folderUrl);
+      }
+    });
+
     // Sheet format change handler
     document.getElementById('sheetFileFormat')?.addEventListener('change', (e) => {
       const customGroup = document.getElementById('customFormatGroup');
@@ -1242,12 +1260,32 @@ class OrganiserManager {
     } catch (error) {
       console.error('💥 AUTO-SCAN ERROR:', error);
       
-      // Show error state
+      // Show error state with helpful information
       loadingDiv.style.display = 'none';
       errorDiv.style.display = 'flex';
-      errorDiv.querySelector('.error-message').textContent = error.message;
       
-      app.showNotification(`❌ Auto-scan failed: ${error.message}`, 'error');
+      let errorMessage = error.message || 'Unknown error occurred';
+      let helpfulTip = '';
+      
+      // Provide specific help based on error type
+      if (errorMessage.includes('Folder ID is required')) {
+        helpfulTip = 'Please paste a valid Google Drive folder URL';
+      } else if (errorMessage.includes('publicly accessible')) {
+        helpfulTip = 'Make sure your folder is shared with "Anyone with the link can view"';
+      } else if (errorMessage.includes('Invalid Google Drive')) {
+        helpfulTip = 'Check that you pasted the complete folder URL from Google Drive';
+      } else {
+        helpfulTip = 'Try refreshing the page and pasting the folder URL again';
+      }
+      
+      errorDiv.querySelector('.error-message').innerHTML = `
+        <div><strong>Scan Failed:</strong> ${errorMessage}</div>
+        <div style="margin-top: 8px; font-size: 0.9em; color: #666;">
+          💡 <strong>Tip:</strong> ${helpfulTip}
+        </div>
+      `;
+      
+      app.showNotification(`❌ Auto-scan failed: ${errorMessage}`, 'error');
     }
   }
 

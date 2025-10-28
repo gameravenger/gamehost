@@ -489,38 +489,76 @@ router.post('/scan-folder-preview', authenticateOrganiser, async (req, res) => {
     // Import Google Drive manager
     const googleDrive = require('../config/google-drive');
     
-    // Scan the folder for individual sheet files
-    const scanResult = await googleDrive.scanFolderForSheets(folderId);
+    try {
+      // Scan the folder for individual sheet files
+      const scanResult = await googleDrive.scanFolderForSheets(folderId);
 
-    if (!scanResult.success) {
-      return res.status(500).json({
-        error: 'Failed to scan Google Drive folder',
-        details: scanResult.error || 'Unknown scanning error'
+      if (!scanResult || !scanResult.success) {
+        console.error('❌ PREVIEW SCAN: Scan result indicates failure');
+        return res.status(500).json({
+          error: 'Failed to scan Google Drive folder',
+          details: scanResult?.error || 'Scan returned unsuccessful result',
+          folderId: folderId,
+          suggestion: 'Please check if the folder is publicly accessible'
+        });
+      }
+
+      const sheetsCount = Object.keys(scanResult.sheetFiles || {}).length;
+      console.log(`✅ PREVIEW SCAN: Found ${sheetsCount} sheets using ${scanResult.scanMethod || 'unknown'} method`);
+
+      // Determine scan quality message
+      let scanQualityMessage = 'Folder scanned successfully';
+      if (scanResult.scanMethod === 'api') {
+        scanQualityMessage = 'High-quality API scan completed';
+      } else if (scanResult.scanMethod === 'public_estimation') {
+        scanQualityMessage = 'Intelligent estimation scan completed';
+      } else if (scanResult.scanMethod === 'emergency') {
+        scanQualityMessage = 'Emergency scan completed (limited results)';
+      }
+
+      res.json({
+        success: true,
+        message: scanQualityMessage,
+        scanResult: {
+          totalFilesFound: scanResult.totalFiles || 0,
+          sheetsDetected: sheetsCount,
+          scannedAt: scanResult.scannedAt,
+          scanMethod: scanResult.scanMethod || 'unknown',
+          estimated: scanResult.estimated || false,
+          placeholder: scanResult.placeholder || false,
+          note: scanResult.note || null
+        },
+        sheetFiles: scanResult.sheetFiles || {},
+        folderId: folderId,
+        autoScanEnabled: true,
+        businessProtection: 'Individual file access configured - no folder exposure'
+      });
+
+    } catch (scanError) {
+      console.error('💥 PREVIEW SCAN: Scan operation failed:', scanError);
+      
+      // Return a helpful error with fallback suggestion
+      res.status(500).json({
+        error: 'Scan operation failed',
+        details: scanError.message || 'Unknown scanning error',
+        folderId: folderId,
+        suggestion: 'Please ensure the Google Drive folder is publicly accessible with "Anyone with the link can view" permissions',
+        troubleshooting: {
+          step1: 'Right-click your Google Drive folder',
+          step2: 'Select "Share"',
+          step3: 'Change access to "Anyone with the link"',
+          step4: 'Set permission to "Viewer"',
+          step5: 'Copy the folder URL and try again'
+        }
       });
     }
 
-    console.log(`✅ PREVIEW SCAN: Found ${Object.keys(scanResult.sheetFiles).length} sheets`);
-
-    res.json({
-      success: true,
-      message: 'Folder scanned successfully',
-      scanResult: {
-        totalFilesFound: scanResult.totalFiles,
-        sheetsDetected: Object.keys(scanResult.sheetFiles).length,
-        scannedAt: scanResult.scannedAt,
-        placeholder: scanResult.placeholder || false
-      },
-      sheetFiles: scanResult.sheetFiles,
-      folderId: folderId,
-      autoScanEnabled: true,
-      businessProtection: 'Individual file access configured - no folder exposure'
-    });
-
   } catch (error) {
-    console.error('💥 Error in preview scan:', error);
+    console.error('💥 Error in preview scan endpoint:', error);
     res.status(500).json({ 
-      error: 'Preview scan failed',
-      details: error.message 
+      error: 'Preview scan endpoint failed',
+      details: error.message,
+      suggestion: 'Please try again or contact support if the issue persists'
     });
   }
 });

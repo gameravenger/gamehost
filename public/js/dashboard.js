@@ -187,12 +187,17 @@ class DashboardManager {
 
   createParticipationCard(participation) {
     const game = participation.games;
-    const canDownload = participation.payment_status === 'approved' && !participation.sheets_downloaded;
-    const canJoinMeeting = participation.payment_status === 'approved' && game.status === 'live' && game.zoom_link;
     
     // Check if user has multiple participations for this game
     const gameParticipations = this.participations.filter(p => p.games.id === game.id);
     const hasMultipleParticipations = gameParticipations.length > 1;
+    
+    // Check if ANY participation for this game is approved and not downloaded
+    const hasApprovedParticipations = gameParticipations.some(p => p.payment_status === 'approved');
+    const hasUndownloadedSheets = gameParticipations.some(p => p.payment_status === 'approved' && !p.sheets_downloaded);
+    
+    const canDownload = hasApprovedParticipations && hasUndownloadedSheets;
+    const canJoinMeeting = participation.payment_status === 'approved' && game.status === 'live' && game.zoom_link;
 
     return `
       <div class="participation-card ${participation.payment_status}">

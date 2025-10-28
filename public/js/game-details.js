@@ -139,7 +139,7 @@ class GameDetailsManager {
       }
       
       this.renderGameDetails();
-      this.generateSheetGrid();
+      // Don't generate sheet grid here - wait for sold sheets to load first
       this.showLoading(false);
       
     } catch (error) {
@@ -284,17 +284,31 @@ class GameDetailsManager {
         approved: this.approvedSheets.length,
         reserved: this.reservedSheets.length
       });
+      
+      // Now generate the sheet grid with the sold sheets data
+      this.generateSheetGrid();
     } catch (error) {
       console.error('Error loading sold sheets:', error);
       this.soldSheets = [];
       this.approvedSheets = [];
       this.reservedSheets = [];
+      
+      // Still generate the grid even if sold sheets failed to load
+      this.generateSheetGrid();
     }
   }
 
   generateSheetGrid() {
     const sheetGrid = document.getElementById('sheetGrid');
-    if (!sheetGrid) return;
+    if (!sheetGrid) {
+      console.error('Sheet grid element not found');
+      return;
+    }
+
+    if (!this.game) {
+      console.error('Game data not loaded yet');
+      return;
+    }
 
     // Generate sheet numbers (assuming 1000 sheets max)
     const totalSheets = this.game.total_sheets || 1000;
@@ -303,6 +317,13 @@ class GameDetailsManager {
     for (let i = 1; i <= totalSheets; i++) {
       sheetNumbers.push(i);
     }
+
+    console.log('Generating sheet grid with:', {
+      totalSheets,
+      soldSheets: this.soldSheets?.length || 0,
+      approvedSheets: this.approvedSheets?.length || 0,
+      reservedSheets: this.reservedSheets?.length || 0
+    });
 
     sheetGrid.innerHTML = sheetNumbers.map(num => {
       const isUnavailable = this.soldSheets && this.soldSheets.includes(num);
@@ -330,6 +351,8 @@ class GameDetailsManager {
         </div>
       `;
     }).join('');
+    
+    console.log('Sheet grid generated with', sheetNumbers.length, 'sheets');
   }
 
   toggleSheetSelection(sheetNumber) {

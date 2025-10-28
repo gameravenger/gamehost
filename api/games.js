@@ -317,7 +317,7 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
     const isFolderBased = fileId.startsWith('FOLDER_');
     
     if (isFolderBased) {
-      console.log(`📁 FOLDER-BASED DOWNLOAD: Using folder-based access for sheet ${requestedSheet}`);
+      console.log(`🔐 SECURE BULK DOWNLOAD: Using secure proxy for sheet ${requestedSheet}`);
       
       // Extract folder ID from the special file ID format
       const folderIdMatch = fileId.match(/FOLDER_([^_]+)_SHEET_(\d+)/);
@@ -325,10 +325,21 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
         const [, extractedFolderId, sheetNum] = folderIdMatch;
         const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', sheetNum);
         
-        console.log(`📁 FOLDER DOWNLOAD: Redirecting to folder-based download for ${fileName}`);
+        console.log(`🔐 SECURE PROXY: Using server-side proxy for ${fileName} (NO Google Drive exposure)`);
         
-        // Use the folder-based download endpoint
-        const folderDownloadUrl = `/api/games/sheets/folder-download/${extractedFolderId}/${encodeURIComponent(fileName)}`;
+        // Mark as downloaded BEFORE providing download link
+        const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
+        await supabaseAdmin
+          .from('game_participants')
+          .update({
+            downloaded_sheet_numbers: updatedDownloadedSheets,
+            sheets_downloaded: updatedDownloadedSheets.length === selectedSheetsAsNumbers.length,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', participationId);
+        
+        // Use the SECURE PROXY endpoint - NO Google Drive exposure
+        const secureProxyUrl = `/api/games/sheets/secure-proxy/${participationId}/${sheetNumber}/${encodeURIComponent(fileName)}`;
         
         return res.json({
           success: true,
@@ -336,16 +347,17 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
           sheetNumber: requestedSheet,
           gameName: game.name,
           directDownload: true,
-          downloadUrl: folderDownloadUrl,
-          downloadMethod: 'folder_based',
-          message: `Sheet ${requestedSheet} ready for folder-based download`,
+          downloadUrl: secureProxyUrl,
+          downloadMethod: 'secure_proxy',
+          message: `Sheet ${requestedSheet} ready for secure download`,
           security: {
-            folderBasedAccess: true,
-            noIndividualFileId: true,
-            bulkScanEnabled: true,
+            secureProxy: true,
+            noGoogleDriveExposure: true,
+            serverSideDownload: true,
             authorizedSheet: requestedSheet,
             participantOnly: true,
-            downloadTracked: true
+            downloadTracked: true,
+            businessProtected: true
           }
         });
       }
@@ -1060,62 +1072,105 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// FOLDER-BASED DOWNLOAD - Works with public Google Drive folders (1000-2000 sheets)
-router.get('/sheets/folder-download/:folderId/:fileName', async (req, res) => {
+// SECURE INDIVIDUAL SHEET PROXY - NO FOLDER ACCESS, ONLY SPECIFIC APPROVED SHEETS
+router.get('/sheets/secure-proxy/:participationId/:sheetNumber/:fileName', authenticateToken, async (req, res) => {
   try {
-    const { folderId, fileName } = req.params;
+    const { participationId, sheetNumber, fileName } = req.params;
+    const userId = req.user.userId;
     
-    console.log(`📁 FOLDER DOWNLOAD: Attempting to download ${fileName} from folder ${folderId}`);
+    console.log(`🔐 SECURE PROXY: User ${userId} requesting ${fileName} (sheet ${sheetNumber})`);
     
-    // Construct Google Drive folder-based download URL
-    // This approach works with public folders without needing individual file IDs
-    const folderViewUrl = `https://drive.google.com/drive/folders/${folderId}`;
+    // CRITICAL SECURITY: Verify user has access to this SPECIFIC sheet
+    const { data: participation } = await supabaseAdmin
+      .from('game_participants')
+      .select(`
+        *,
+        games (
+          sheets_folder_id,
+          name,
+          individual_sheet_files
+        )
+      `)
+      .eq('id', participationId)
+      .eq('user_id', userId)
+      .eq('payment_status', 'approved')
+      .single();
+
+    if (!participation) {
+      console.log(`❌ SECURITY: Access denied for user ${userId}, participation ${participationId}`);
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Check if user selected this specific sheet
+    const selectedSheets = participation.selected_sheet_numbers || [];
+    const requestedSheet = parseInt(sheetNumber);
     
-    // Try different Google Drive download approaches for public folders
-    const downloadUrls = [
-      // Method 1: Direct folder file access
-      `https://drive.google.com/uc?export=download&id=${folderId}&filename=${encodeURIComponent(fileName)}`,
-      // Method 2: Alternative folder access
-      `https://drive.google.com/drive/folders/${folderId}/download?filename=${encodeURIComponent(fileName)}`,
-      // Method 3: Public folder file access
-      `https://docs.google.com/uc?export=download&id=${folderId}&filename=${encodeURIComponent(fileName)}`
-    ];
+    if (!selectedSheets.includes(requestedSheet)) {
+      console.log(`❌ SECURITY: User ${userId} did not select sheet ${requestedSheet}`);
+      return res.status(403).json({ error: 'Sheet not selected by user' });
+    }
+
+    // Check if already downloaded (one-time download)
+    const downloadedSheets = participation.downloaded_sheet_numbers || [];
+    if (downloadedSheets.includes(requestedSheet)) {
+      console.log(`❌ SECURITY: Sheet ${requestedSheet} already downloaded by user ${userId}`);
+      return res.status(409).json({ error: 'Sheet already downloaded' });
+    }
+
+    const game = participation.games;
+    const folderId = game.sheets_folder_id;
     
-    // Try each download method
-    for (let i = 0; i < downloadUrls.length; i++) {
-      const downloadUrl = downloadUrls[i];
-      console.log(`🔄 FOLDER DOWNLOAD: Trying method ${i + 1}: ${downloadUrl}`);
+    if (!folderId) {
+      return res.status(404).json({ error: 'Game sheets not configured' });
+    }
+
+    console.log(`🔐 SECURE PROXY: Downloading ${fileName} from folder ${folderId} for authorized user`);
+    
+    // SECURE APPROACH: Server downloads the file and streams it to user
+    // This prevents any Google Drive exposure
+    const googleDriveUrl = `https://drive.google.com/uc?export=download&id=${folderId}&filename=${encodeURIComponent(fileName)}`;
+    
+    try {
+      const response = await fetch(googleDriveUrl);
       
-      try {
-        const response = await fetch(downloadUrl, {
-          method: 'HEAD',
-          timeout: 10000
-        });
-        
-        if (response.ok) {
-          console.log(`✅ FOLDER DOWNLOAD: Method ${i + 1} successful, redirecting to ${downloadUrl}`);
-          return res.redirect(downloadUrl);
-        }
-      } catch (fetchError) {
-        console.log(`❌ FOLDER DOWNLOAD: Method ${i + 1} failed:`, fetchError.message);
+      if (!response.ok) {
+        throw new Error(`Google Drive returned ${response.status}`);
       }
+      
+      // Mark as downloaded BEFORE streaming
+      const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
+      await supabaseAdmin
+        .from('game_participants')
+        .update({
+          downloaded_sheet_numbers: updatedDownloadedSheets,
+          sheets_downloaded: updatedDownloadedSheets.length === selectedSheets.length,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', participationId);
+      
+      console.log(`✅ SECURE PROXY: Streaming ${fileName} to user ${userId} (no Google Drive exposure)`);
+      
+      // Set headers for file download
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      
+      // Stream the file through our server (NO Google Drive exposure)
+      response.body.pipe(res);
+      
+    } catch (downloadError) {
+      console.error(`💥 SECURE PROXY ERROR:`, downloadError);
+      return res.status(500).json({
+        error: 'File download failed',
+        details: 'Could not retrieve file from secure storage'
+      });
     }
     
-    // If all methods fail, try a generic folder-based approach
-    console.log(`🔄 FOLDER DOWNLOAD: All direct methods failed, trying generic approach`);
-    
-    // Redirect to the folder view - user can manually download
-    const fallbackUrl = `${folderViewUrl}?filename=${encodeURIComponent(fileName)}`;
-    console.log(`📁 FOLDER DOWNLOAD: Redirecting to folder view: ${fallbackUrl}`);
-    
-    res.redirect(fallbackUrl);
-    
   } catch (error) {
-    console.error('💥 FOLDER DOWNLOAD ERROR:', error);
+    console.error('💥 SECURE PROXY ERROR:', error);
     res.status(500).json({
-      error: 'Folder download failed',
-      details: error.message,
-      suggestion: 'Please ensure the Google Drive folder is publicly accessible'
+      error: 'Secure download failed',
+      details: error.message
     });
   }
 });

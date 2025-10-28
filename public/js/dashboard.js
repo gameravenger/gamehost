@@ -477,33 +477,54 @@ ERROR DETAILS:
       if (response.success && response.downloadUrl) {
         console.log(`✅ DOWNLOAD: Authorized for sheet ${sheetNumber}`);
         
-        // Handle direct individual file access - NO folder exposure
-        console.log(`🔐 DOWNLOAD: Using direct individual file access`);
-        
-        // Get the direct file access information
-        const fileResponse = await app.apiCall(response.downloadUrl.replace('/api', ''));
-        
-        if (fileResponse.success && fileResponse.directFileUrl) {
-          console.log(`✅ DOWNLOAD: Got direct file URL for sheet ${sheetNumber}`);
-          
-          // Create direct download link to individual file
-          const link = document.createElement('a');
-          link.href = fileResponse.directFileUrl;
-          link.download = fileName;
-          link.style.display = 'none';
-          
-          // Add to DOM, trigger download, remove
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-          
-          // Update UI to show downloaded status
-          this.markSheetAsDownloaded(participationId, sheetNumber);
-          
-          app.showNotification(`✅ ${fileName} downloaded successfully (Direct File)`, 'success');
-        } else {
-          throw new Error('Failed to get direct file access');
-        }
+                // Handle secure proxy download - NO Google Drive exposure
+                console.log(`🔐 DOWNLOAD: Using secure server-side proxy`);
+
+                // Check if this is a secure proxy download
+                if (response.downloadMethod === 'secure_proxy') {
+                  console.log(`✅ DOWNLOAD: Using secure proxy for ${fileName} (NO Google Drive exposure)`);
+
+                  // Create secure download link through our server proxy
+                  const link = document.createElement('a');
+                  link.href = response.downloadUrl;
+                  link.download = fileName;
+                  link.style.display = 'none';
+
+                  // Add to DOM, trigger download, remove
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+
+                  // Update UI to show downloaded status
+                  this.markSheetAsDownloaded(participationId, sheetNumber);
+
+                  app.showNotification(`✅ ${fileName} downloaded securely (No Google Drive exposure)`, 'success');
+                } else {
+                  // Fallback for other download methods
+                  const fileResponse = await app.apiCall(response.downloadUrl.replace('/api', ''));
+
+                  if (fileResponse.success && fileResponse.directFileUrl) {
+                    console.log(`✅ DOWNLOAD: Got direct file URL for sheet ${sheetNumber}`);
+
+                    // Create direct download link to individual file
+                    const link = document.createElement('a');
+                    link.href = fileResponse.directFileUrl;
+                    link.download = fileName;
+                    link.style.display = 'none';
+
+                    // Add to DOM, trigger download, remove
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    // Update UI to show downloaded status
+                    this.markSheetAsDownloaded(participationId, sheetNumber);
+
+                    app.showNotification(`✅ ${fileName} downloaded successfully`, 'success');
+                  } else {
+                    throw new Error('Failed to get file access');
+                  }
+                }
         
       } else {
         throw new Error(response.error || 'Download authorization failed');

@@ -362,10 +362,11 @@ class GoogleDriveManager {
     }
   }
 
-  // Generate folder-based download URL that works with public folders
+  // Generate secure proxy URL that prevents any Google Drive exposure
   generateFolderBasedDownloadUrl(folderId, fileName) {
-    // Use a server-side proxy that can handle folder-based downloads
-    return `/api/games/sheets/folder-download/${folderId}/${encodeURIComponent(fileName)}`;
+    // This will be replaced with the actual secure proxy URL during download
+    // The secure proxy ensures NO Google Drive exposure to users
+    return `SECURE_PROXY_PLACEHOLDER_${folderId}_${fileName}`;
   }
 
   async validateFolderId(folderId) {

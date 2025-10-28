@@ -189,6 +189,10 @@ class DashboardManager {
     const game = participation.games;
     const canDownload = participation.payment_status === 'approved' && !participation.sheets_downloaded;
     const canJoinMeeting = participation.payment_status === 'approved' && game.status === 'live' && game.zoom_link;
+    
+    // Check if user has multiple participations for this game
+    const gameParticipations = this.participations.filter(p => p.games.id === game.id);
+    const hasMultipleParticipations = gameParticipations.length > 1;
 
     return `
       <div class="participation-card ${participation.payment_status}">
@@ -220,8 +224,8 @@ class DashboardManager {
           
           <div class="participation-actions">
             ${canDownload ? `
-              <button class="btn btn-download" onclick="dashboardManager.downloadSheets('${participation.id}', '${game.id}')">
-                📥 Download Sheets
+              <button class="btn btn-download" onclick="dashboardManager.downloadAllGameSheets('${game.id}')">
+                📥 Download ${hasMultipleParticipations ? 'All ' : ''}Sheets
               </button>
             ` : participation.sheets_downloaded ? `
               <button class="btn btn-secondary" disabled>
@@ -249,6 +253,39 @@ class DashboardManager {
     `;
   }
 
+  // New method to download all sheets for a game (handles multiple participations)
+  async downloadAllGameSheets(gameId) {
+    try {
+      app.showNotification('Preparing your sheet downloads...', 'info');
+      
+      const response = await app.apiCall(`/games/${gameId}/download-sheets`);
+      
+      if (response.participations && response.participations.length > 0) {
+        // Collect all sheets from all participations
+        const allSheets = [];
+        for (const participation of response.participations) {
+          for (const sheetNumber of participation.sheets) {
+            const fileName = `Sheet_${sheetNumber}.pdf`;
+            allSheets.push({
+              sheetNumber: sheetNumber,
+              fileName: fileName,
+              downloadUrl: participation.downloadUrl,
+              participationId: participation.id
+            });
+          }
+        }
+        
+        this.showDownloadModal(allSheets, allSheets.length);
+      } else {
+        app.showNotification('No sheets available for download', 'error');
+      }
+      
+    } catch (error) {
+      app.showNotification(error.message || 'Failed to prepare downloads', 'error');
+    }
+  }
+
+  // Legacy method for single participation downloads (kept for compatibility)
   async downloadSheets(participationId, gameId) {
     try {
       app.showNotification('Preparing your sheet downloads...', 'info');

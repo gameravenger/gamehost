@@ -404,16 +404,15 @@ router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
     const { id: gameId } = req.params;
     const userId = req.user.userId;
 
-    // Check if user is approved participant
-    const { data: participation, error } = await supabaseAdmin
+    // Get ALL approved participations for this user and game
+    const { data: participations, error } = await supabaseAdmin
       .from('game_participants')
       .select('*')
       .eq('game_id', gameId)
       .eq('user_id', userId)
-      .eq('payment_status', 'approved')
-      .single();
+      .eq('payment_status', 'approved');
 
-    if (error || !participation) {
+    if (error || !participations || participations.length === 0) {
       return res.status(403).json({ error: 'You are not approved for this game or not registered' });
     }
 
@@ -428,21 +427,32 @@ router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Game sheets not available' });
     }
 
-    // Mark sheets as downloaded
+    // Mark all participations as downloaded
+    const participationIds = participations.map(p => p.id);
     await supabaseAdmin
       .from('game_participants')
       .update({ sheets_downloaded: true })
-      .eq('id', participation.id);
+      .in('id', participationIds);
+
+    // Collect all sheet numbers from all participations
+    const allSheetNumbers = [];
+    participations.forEach(participation => {
+      if (participation.selected_sheet_numbers) {
+        allSheetNumbers.push(...participation.selected_sheet_numbers);
+      }
+    });
 
     // Return sheet download information
-    // Note: In a real implementation, you would integrate with Google Drive API
-    // to generate temporary download links for the selected sheets
     res.json({
       message: 'Sheets ready for download',
-      sheetNumbers: participation.selected_sheet_numbers,
+      sheetNumbers: allSheetNumbers,
       gameId: gameId,
       gameName: game.name,
-      downloadUrl: `/api/games/${gameId}/sheets/${participation.id}` // This would be implemented with Google Drive integration
+      participations: participations.map(p => ({
+        id: p.id,
+        sheets: p.selected_sheet_numbers,
+        downloadUrl: `/api/games/${gameId}/sheets/${p.id}`
+      }))
     });
   } catch (error) {
     console.error('Error downloading sheets:', error);

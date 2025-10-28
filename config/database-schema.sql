@@ -65,6 +65,7 @@ CREATE TABLE games (
 );
 
 -- Game participants (users who registered for games)
+-- Note: Removed UNIQUE(game_id, user_id) to allow multiple sheet purchases for same game
 CREATE TABLE game_participants (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     game_id UUID REFERENCES games(id) ON DELETE CASCADE,
@@ -77,8 +78,8 @@ CREATE TABLE game_participants (
     sheets_downloaded BOOLEAN DEFAULT false,
     selected_sheet_numbers TEXT[], -- Array of selected sheet numbers
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    UNIQUE(game_id, user_id)
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    -- UNIQUE constraint removed to allow multiple purchases per game per user
 );
 
 -- Game winners

@@ -307,8 +307,9 @@
 
 .sheet-status-legend h4 {
   margin: 0 0 15px 0;
-  color: var(--text-primary);
+  color: #333;
   font-size: 1.1rem;
+  font-weight: 600;
 }
 
 .legend-items {
@@ -322,6 +323,8 @@
   align-items: center;
   gap: 8px;
   font-size: 0.9rem;
+  color: #333;
+  font-weight: 500;
 }
 
 .legend-box {

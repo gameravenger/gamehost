@@ -659,9 +659,12 @@ class OrganiserManager {
     // Game needs auto-scan if:
     // 1. It has a sheets folder but no individual_sheet_files configured
     // 2. Or individual_sheet_files is empty
-    return game.sheets_folder_id && 
-           (!game.individual_sheet_files || 
-            Object.keys(game.individual_sheet_files || {}).length === 0);
+    // 3. But only for games that are not newly created (give some time for processing)
+    const hasFolder = game.sheets_folder_id;
+    const hasIndividualFiles = game.individual_sheet_files && Object.keys(game.individual_sheet_files).length > 0;
+    const isOldEnough = new Date() - new Date(game.created_at) > 60000; // 1 minute old
+    
+    return hasFolder && !hasIndividualFiles && isOldEnough;
   }
 
   // Run auto-scan for a specific game

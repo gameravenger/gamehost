@@ -145,8 +145,10 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
     // Log auto-scan status
     if (autoScanned && individualSheetFiles && Object.keys(individualSheetFiles).length > 0) {
       console.log(`🔍 GAME CREATION: Auto-scanned game with ${Object.keys(individualSheetFiles).length} individual files`);
+      console.log(`📋 INDIVIDUAL FILES:`, Object.keys(individualSheetFiles).slice(0, 5)); // Show first 5
     } else {
-      console.log(`📁 GAME CREATION: Traditional game creation (no auto-scan)`);
+      console.log(`📁 GAME CREATION: Traditional game creation (no auto-scan data provided)`);
+      console.log(`📊 AUTO-SCAN DATA:`, { autoScanned, hasIndividualFiles: !!individualSheetFiles, fileCount: Object.keys(individualSheetFiles || {}).length });
     }
 
     // Create game data object
@@ -185,7 +187,8 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
     // If error is about missing column, create without it for now
     if (error && error.message.includes('individual_sheet_files')) {
       console.log('⚠️ MIGRATION: individual_sheet_files column missing, creating game without it...');
-      console.log('💡 SOLUTION: Please run the database migration: POST /api/organiser/migrate-database');
+      console.log('💡 SOLUTION: Run this SQL in Supabase Dashboard:');
+      console.log('   ALTER TABLE games ADD COLUMN IF NOT EXISTS individual_sheet_files JSONB DEFAULT \'{}\';');
       
       // Remove the problematic field and try again
       const { individual_sheet_files, ...gameDataWithoutFiles } = gameData;
@@ -200,7 +203,8 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
       error = retryResult.error;
       
       if (!error && individual_sheet_files && Object.keys(individual_sheet_files).length > 0) {
-        console.log('⚠️ WARNING: Game created without individual_sheet_files. Run migration to enable secure downloads.');
+        console.log(`⚠️ WARNING: Game created without ${Object.keys(individual_sheet_files).length} individual sheet files.`);
+        console.log('🔧 NEXT STEP: After running migration, use the Auto-Scan button to configure downloads.');
       }
     }
 
@@ -469,11 +473,10 @@ router.post('/games/:id/auto-scan-sheets', authenticateOrganiser, async (req, re
       .from('games')
       .update({ 
         individual_sheet_files: individualSheetFiles,
-        auto_scanned_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
-      .select('id, name, individual_sheet_files, auto_scanned_at')
+      .select('id, name, individual_sheet_files')
       .single();
 
     if (error) {

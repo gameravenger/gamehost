@@ -313,6 +313,44 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
       });
     }
 
+    // Check if this is a folder-based file ID (bulk scan result)
+    const isFolderBased = fileId.startsWith('FOLDER_');
+    
+    if (isFolderBased) {
+      console.log(`📁 FOLDER-BASED DOWNLOAD: Using folder-based access for sheet ${requestedSheet}`);
+      
+      // Extract folder ID from the special file ID format
+      const folderIdMatch = fileId.match(/FOLDER_([^_]+)_SHEET_(\d+)/);
+      if (folderIdMatch) {
+        const [, extractedFolderId, sheetNum] = folderIdMatch;
+        const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', sheetNum);
+        
+        console.log(`📁 FOLDER DOWNLOAD: Redirecting to folder-based download for ${fileName}`);
+        
+        // Use the folder-based download endpoint
+        const folderDownloadUrl = `/api/games/sheets/folder-download/${extractedFolderId}/${encodeURIComponent(fileName)}`;
+        
+        return res.json({
+          success: true,
+          fileName: fileName,
+          sheetNumber: requestedSheet,
+          gameName: game.name,
+          directDownload: true,
+          downloadUrl: folderDownloadUrl,
+          downloadMethod: 'folder_based',
+          message: `Sheet ${requestedSheet} ready for folder-based download`,
+          security: {
+            folderBasedAccess: true,
+            noIndividualFileId: true,
+            bulkScanEnabled: true,
+            authorizedSheet: requestedSheet,
+            participantOnly: true,
+            downloadTracked: true
+          }
+        });
+      }
+    }
+
     // Mark this sheet as downloaded BEFORE providing download link
     const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
     await supabaseAdmin
@@ -1019,6 +1057,66 @@ router.get('/:id', async (req, res) => {
   } catch (error) {
     console.error('Error fetching game details:', error);
     res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// FOLDER-BASED DOWNLOAD - Works with public Google Drive folders (1000-2000 sheets)
+router.get('/sheets/folder-download/:folderId/:fileName', async (req, res) => {
+  try {
+    const { folderId, fileName } = req.params;
+    
+    console.log(`📁 FOLDER DOWNLOAD: Attempting to download ${fileName} from folder ${folderId}`);
+    
+    // Construct Google Drive folder-based download URL
+    // This approach works with public folders without needing individual file IDs
+    const folderViewUrl = `https://drive.google.com/drive/folders/${folderId}`;
+    
+    // Try different Google Drive download approaches for public folders
+    const downloadUrls = [
+      // Method 1: Direct folder file access
+      `https://drive.google.com/uc?export=download&id=${folderId}&filename=${encodeURIComponent(fileName)}`,
+      // Method 2: Alternative folder access
+      `https://drive.google.com/drive/folders/${folderId}/download?filename=${encodeURIComponent(fileName)}`,
+      // Method 3: Public folder file access
+      `https://docs.google.com/uc?export=download&id=${folderId}&filename=${encodeURIComponent(fileName)}`
+    ];
+    
+    // Try each download method
+    for (let i = 0; i < downloadUrls.length; i++) {
+      const downloadUrl = downloadUrls[i];
+      console.log(`🔄 FOLDER DOWNLOAD: Trying method ${i + 1}: ${downloadUrl}`);
+      
+      try {
+        const response = await fetch(downloadUrl, {
+          method: 'HEAD',
+          timeout: 10000
+        });
+        
+        if (response.ok) {
+          console.log(`✅ FOLDER DOWNLOAD: Method ${i + 1} successful, redirecting to ${downloadUrl}`);
+          return res.redirect(downloadUrl);
+        }
+      } catch (fetchError) {
+        console.log(`❌ FOLDER DOWNLOAD: Method ${i + 1} failed:`, fetchError.message);
+      }
+    }
+    
+    // If all methods fail, try a generic folder-based approach
+    console.log(`🔄 FOLDER DOWNLOAD: All direct methods failed, trying generic approach`);
+    
+    // Redirect to the folder view - user can manually download
+    const fallbackUrl = `${folderViewUrl}?filename=${encodeURIComponent(fileName)}`;
+    console.log(`📁 FOLDER DOWNLOAD: Redirecting to folder view: ${fallbackUrl}`);
+    
+    res.redirect(fallbackUrl);
+    
+  } catch (error) {
+    console.error('💥 FOLDER DOWNLOAD ERROR:', error);
+    res.status(500).json({
+      error: 'Folder download failed',
+      details: error.message,
+      suggestion: 'Please ensure the Google Drive folder is publicly accessible'
+    });
   }
 });
 

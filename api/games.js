@@ -231,7 +231,8 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
           sheets_folder_id,
           sheet_file_format,
           name,
-          id
+          id,
+          individual_sheet_files
         )
       `)
       .eq('id', participationId)
@@ -287,6 +288,10 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
     // Check if game has individual file IDs configured
     const individualFiles = game.individual_sheet_files || {};
     const fileId = individualFiles[requestedSheet.toString()];
+    
+    console.log(`🔍 DOWNLOAD DEBUG: Game ${game.name} (${game.id})`);
+    console.log(`📊 Individual files configured:`, Object.keys(individualFiles).length > 0 ? Object.keys(individualFiles).slice(0, 5) : 'NONE');
+    console.log(`🎯 Looking for sheet ${requestedSheet}, found fileId:`, fileId ? 'YES' : 'NO');
 
     // CRITICAL SECURITY: If no individual file ID, block download completely
     if (!fileId) {
@@ -748,7 +753,7 @@ router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
     // Get game details with sheets folder (using different variable name to avoid conflict)
     const { data: gameDetails } = await supabaseAdmin
       .from('games')
-      .select('sheets_folder_id, name, sheet_file_format')
+      .select('sheets_folder_id, name, sheet_file_format, individual_sheet_files')
       .eq('id', gameId)
       .single();
 
@@ -932,7 +937,8 @@ router.get('/:gameId/sheets/:participationId', authenticateToken, async (req, re
           sheets_folder_id, 
           sheets_folder_url,
           sheet_file_format,
-          name
+          name,
+          individual_sheet_files
         )
       `)
       .eq('id', participationId)

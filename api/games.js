@@ -343,13 +343,13 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
   }
 });
 
-// SECURE FILE PROXY - STREAMS INDIVIDUAL FILES WITHOUT FOLDER EXPOSURE
+// SECURE FILE STREAMING - NO GOOGLE DRIVE EXPOSURE TO USERS
 router.get('/sheets/proxy-download/:participationId/:sheetNumber', authenticateToken, async (req, res) => {
   try {
     const { participationId, sheetNumber } = req.params;
     const userId = req.user.userId;
 
-    console.log(`🔄 SECURE PROXY: User ${userId} requesting file stream for sheet ${sheetNumber}`);
+    console.log(`🔄 SECURE STREAM: User ${userId} requesting secure file stream for sheet ${sheetNumber}`);
 
     // Re-verify access (security check)
     const { data: participation } = await supabaseAdmin
@@ -369,7 +369,8 @@ router.get('/sheets/proxy-download/:participationId/:sheetNumber', authenticateT
       .single();
 
     if (!participation) {
-      return res.status(403).json({ error: 'Access denied' });
+      console.log(`❌ SECURITY: Access denied for user ${userId}, participation ${participationId}`);
+      return res.status(403).json({ error: 'Access denied - not authorized' });
     }
 
     const requestedSheet = parseInt(sheetNumber);
@@ -378,14 +379,16 @@ router.get('/sheets/proxy-download/:participationId/:sheetNumber', authenticateT
     );
     
     if (!selectedSheetsAsNumbers.includes(requestedSheet)) {
-      return res.status(403).json({ error: 'Unauthorized sheet access' });
+      console.log(`❌ SECURITY: Sheet ${requestedSheet} not in user selection:`, selectedSheetsAsNumbers);
+      return res.status(403).json({ error: 'Sheet not in your selection' });
     }
 
     // Check if already downloaded
     const downloadedSheets = participation.downloaded_sheet_numbers || [];
     if (downloadedSheets.includes(requestedSheet)) {
+      console.log(`⚠️ SECURITY: Sheet ${requestedSheet} already downloaded by user ${userId}`);
       return res.status(409).json({ 
-        error: 'This sheet has already been downloaded',
+        error: 'This sheet has already been downloaded. Each sheet can only be downloaded once.',
         code: 'ALREADY_DOWNLOADED'
       });
     }
@@ -398,23 +401,17 @@ router.get('/sheets/proxy-download/:participationId/:sheetNumber', authenticateT
     const fileId = individualFiles[sheetNumber.toString()];
 
     if (!fileId) {
-      console.log(`🚫 SECURITY: No individual file ID for sheet ${requestedSheet} in game ${game.name}`);
-      return res.status(501).json({
-        error: 'Individual file download not configured for this sheet',
-        message: 'This game is not properly configured for secure downloads',
-        details: {
-          issue: 'No individual file ID found for this sheet',
-          sheetNumber: requestedSheet,
-          gameName: game.name,
-          adminAction: 'Game organizer must add individual file IDs for each sheet'
-        },
-        temporaryDisabled: true
+      console.log(`🚫 SECURITY: No individual file ID configured for sheet ${requestedSheet}`);
+      return res.status(503).json({
+        error: 'Secure download not available',
+        message: 'This sheet is not yet available for secure download',
+        code: 'NOT_CONFIGURED'
       });
     }
 
-    console.log(`✅ SECURE PROXY: Found individual file ID for sheet ${requestedSheet}`);
+    console.log(`✅ SECURE STREAM: Authorized file stream for user ${userId}, sheet ${requestedSheet}`);
 
-    // Mark as downloaded BEFORE providing access
+    // Mark as downloaded BEFORE streaming
     const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
     await supabaseAdmin
       .from('game_participants')
@@ -425,21 +422,54 @@ router.get('/sheets/proxy-download/:participationId/:sheetNumber', authenticateT
       })
       .eq('id', participationId);
 
-    // Create secure direct download URL for individual file
-    const directFileUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
-    
-    console.log(`📥 SECURE DOWNLOAD: User ${userId} authorized for file ${fileId}`);
+    // STREAM FILE THROUGH OUR SERVER - NO GOOGLE DRIVE EXPOSURE
+    try {
+      const https = require('https');
+      const directFileUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+      
+      console.log(`📥 STREAMING: Fetching file ${fileId} for user ${userId}`);
 
-    // Set download headers
-    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.setHeader('Content-Type', 'application/pdf');
-    
-    // Redirect to the individual file (no folder access)
-    res.redirect(directFileUrl);
+      // Set response headers for file download
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+
+      // Stream the file through our server
+      const request = https.get(directFileUrl, (fileResponse) => {
+        if (fileResponse.statusCode === 200) {
+          console.log(`✅ STREAMING: Successfully streaming ${fileName} to user ${userId}`);
+          fileResponse.pipe(res);
+        } else {
+          console.log(`❌ STREAMING: Failed to fetch file ${fileId}, status: ${fileResponse.statusCode}`);
+          res.status(404).json({ error: 'File not found or not accessible' });
+        }
+      });
+
+      request.on('error', (error) => {
+        console.error(`💥 STREAMING ERROR: ${error.message}`);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'File streaming failed' });
+        }
+      });
+
+      request.setTimeout(30000, () => {
+        console.log(`⏰ STREAMING TIMEOUT: File ${fileId} for user ${userId}`);
+        request.destroy();
+        if (!res.headersSent) {
+          res.status(408).json({ error: 'Download timeout' });
+        }
+      });
+
+    } catch (streamError) {
+      console.error(`💥 STREAMING SETUP ERROR:`, streamError);
+      res.status(500).json({ error: 'File streaming setup failed' });
+    }
 
   } catch (error) {
-    console.error('💥 Error in secure proxy:', error);
-    res.status(500).json({ error: 'Secure proxy failed' });
+    console.error('💥 Error in secure file streaming:', error);
+    res.status(500).json({ error: 'Secure streaming failed' });
   }
 });
 

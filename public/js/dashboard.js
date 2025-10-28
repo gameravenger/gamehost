@@ -354,7 +354,7 @@ ERROR DETAILS:
     modalBody.innerHTML = `
       <div class="download-summary">
         <p>You have <strong>${totalSheets}</strong> approved sheets ready for secure download.</p>
-        <p class="download-warning">🔒 <strong>Security Notice:</strong> Each sheet can only be downloaded ONCE. No folder access provided.</p>
+        <p class="download-warning">🔒 <strong>Security Notice:</strong> Files are streamed directly through our secure servers. Each sheet can only be downloaded ONCE.</p>
         <p class="download-info">📋 <strong>Your Authorized Sheets:</strong> ${sheets.map(s => s.sheetNumber).join(', ')}</p>
       </div>
       
@@ -385,14 +385,15 @@ ERROR DETAILS:
         </button>
       </div>
       
-      <div class="security-notice">
-        <h4>🛡️ Enhanced Security Features:</h4>
+        <div class="security-notice">
+        <h4>🛡️ Maximum Security Features:</h4>
         <ul>
-          <li>🔐 <strong>Individual Sheet Access:</strong> Only your purchased sheets are accessible</li>
-          <li>⚡ <strong>Fast Downloads:</strong> Direct download links with no delays</li>
-          <li>🚫 <strong>No Folder Access:</strong> Cannot access other participants' sheets</li>
-          <li>📊 <strong>Download Tracking:</strong> Each download is logged and limited</li>
-          <li>✅ <strong>One-Time Only:</strong> Each sheet can only be downloaded once</li>
+          <li>🔐 <strong>Server-Side Streaming:</strong> Files streamed through our secure servers only</li>
+          <li>⚡ <strong>Direct Downloads:</strong> No external links or folder exposure</li>
+          <li>🚫 <strong>Zero Google Drive Access:</strong> Users never see or access Google Drive</li>
+          <li>📊 <strong>Complete Tracking:</strong> Every download attempt is logged and verified</li>
+          <li>✅ <strong>One-Time Security:</strong> Each sheet can only be downloaded once per user</li>
+          <li>💰 <strong>Business Protection:</strong> Prevents unauthorized access to other sheets</li>
         </ul>
       </div>
     `;
@@ -451,10 +452,10 @@ ERROR DETAILS:
     }
   }
 
-  // SECURE DOWNLOAD - Individual sheets with proper authorization
+  // SECURE DOWNLOAD - Server-side streaming with no Google Drive exposure
   async downloadSecureSheet(participationId, sheetNumber, fileName) {
     try {
-      app.showNotification(`🔐 Authorizing download for ${fileName}...`, 'info');
+      app.showNotification(`🔐 Starting secure download for ${fileName}...`, 'info');
       
       console.log(`🔐 DOWNLOAD: Requesting secure download for sheet ${sheetNumber}, participation ${participationId}`);
       
@@ -464,19 +465,24 @@ ERROR DETAILS:
       if (response.success && response.downloadUrl) {
         console.log(`✅ DOWNLOAD: Authorized for sheet ${sheetNumber}`);
         
-        // Get the proxy download information
-        const proxyResponse = await app.apiCall(response.downloadUrl.replace('/api', ''));
+        // Direct download through our secure server - no Google Drive exposure
+        app.showNotification(`📥 Downloading ${fileName}...`, 'info');
         
-        if (proxyResponse.success && proxyResponse.secureAccess) {
-          // Show secure download modal with instructions
-          this.showSecureDownloadInstructions(proxyResponse);
-          
-          // Update UI to show downloaded status
-          this.markSheetAsDownloaded(participationId, sheetNumber);
-          
-        } else {
-          throw new Error('Failed to get secure access information');
-        }
+        // Create download link that goes through our secure proxy
+        const link = document.createElement('a');
+        link.href = response.downloadUrl;
+        link.download = fileName;
+        link.style.display = 'none';
+        
+        // Add to DOM, trigger download, remove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Update UI to show downloaded status
+        this.markSheetAsDownloaded(participationId, sheetNumber);
+        
+        app.showNotification(`✅ ${fileName} downloaded successfully`, 'success');
         
       } else {
         throw new Error(response.error || 'Download authorization failed');
@@ -490,7 +496,7 @@ ERROR DETAILS:
         this.markSheetAsDownloaded(participationId, sheetNumber);
       } else if (error.message.includes('not authorized')) {
         app.showNotification(`🚫 You are not authorized to download ${fileName}`, 'error');
-      } else if (error.message.includes('not configured') || error.message.includes('temporarily disabled')) {
+      } else if (error.message.includes('not configured') || error.message.includes('not available')) {
         app.showNotification(`🔒 Secure downloads not configured for this game yet`, 'warning');
         this.showSecurityConfigurationNotice();
       } else {
@@ -499,54 +505,7 @@ ERROR DETAILS:
     }
   }
 
-  // Show secure download instructions modal
-  showSecureDownloadInstructions(downloadInfo) {
-    const modal = document.createElement('div');
-    modal.className = 'secure-download-modal';
-    modal.innerHTML = `
-      <div class="secure-download-content">
-        <h3>🔐 ${downloadInfo.instructions.title}</h3>
-        
-        <div class="download-warning">
-          ${downloadInfo.instructions.warning}
-        </div>
-        
-        <div class="download-steps">
-          <h4>Download Instructions:</h4>
-          <ol>
-            ${downloadInfo.instructions.steps.map(step => `<li>${step}</li>`).join('')}
-          </ol>
-        </div>
-        
-        <div class="download-actions">
-          <a href="${downloadInfo.secureAccess.url}" target="_blank" class="btn btn-primary">
-            🔐 Open Secure Folder
-          </a>
-          <button class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">
-            Close
-          </button>
-        </div>
-        
-        <div class="security-info">
-          <small>
-            🛡️ This download is tracked and logged for security purposes.<br>
-            📋 Authorized file: <strong>${downloadInfo.secureAccess.authorizedFile}</strong>
-          </small>
-        </div>
-      </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    // Auto-remove after 30 seconds
-    setTimeout(() => {
-      if (modal.parentElement) {
-        modal.remove();
-      }
-    }, 30000);
-    
-    app.showNotification(`🔐 Secure folder opened for ${downloadInfo.fileName}`, 'success');
-  }
+  // This method is no longer needed - we stream files directly through our server
 
   // Show security configuration notice for games not yet configured
   showSecurityConfigurationNotice() {
@@ -561,12 +520,12 @@ ERROR DETAILS:
         </div>
         
         <div class="download-steps">
-          <h4>Why downloads are disabled:</h4>
+          <h4>Why downloads are temporarily unavailable:</h4>
           <ul>
-            <li>🛡️ <strong>Security Protection:</strong> We prevent folder access that would expose all sheets</li>
-            <li>💰 <strong>Business Protection:</strong> Folder access would allow downloading all sheets, causing massive losses</li>
-            <li>🔐 <strong>Individual File Access:</strong> Each sheet needs its own secure file ID</li>
-            <li>⚡ <strong>Coming Soon:</strong> Organizer is configuring individual sheet access</li>
+            <li>🛡️ <strong>Maximum Security:</strong> Files are streamed through our secure servers only</li>
+            <li>💰 <strong>Business Protection:</strong> No Google Drive exposure prevents unauthorized access</li>
+            <li>🔐 <strong>Individual File Streaming:</strong> Each sheet is served individually with full authorization</li>
+            <li>⚡ <strong>Setup Required:</strong> Organizer must configure individual file access</li>
           </ul>
         </div>
         

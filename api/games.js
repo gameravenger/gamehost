@@ -208,6 +208,42 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+// Get sold sheets for a game
+router.get('/:id/sold-sheets', async (req, res) => {
+  try {
+    const { id: gameId } = req.params;
+    
+    // Get all approved participations for this game
+    const { data: participations, error } = await supabase
+      .from('game_participants')
+      .select('selected_sheet_numbers')
+      .eq('game_id', gameId)
+      .eq('payment_status', 'approved');
+
+    if (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Collect all sold sheet numbers
+    const soldSheets = [];
+    if (participations && participations.length > 0) {
+      participations.forEach(participation => {
+        if (participation.selected_sheet_numbers) {
+          soldSheets.push(...participation.selected_sheet_numbers);
+        }
+      });
+    }
+
+    // Remove duplicates and sort
+    const uniqueSoldSheets = [...new Set(soldSheets)].sort((a, b) => a - b);
+
+    res.json({ soldSheets: uniqueSoldSheets });
+  } catch (error) {
+    console.error('Error fetching sold sheets:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // Register for a game (payment verification)
 router.post('/:id/register', authenticateToken, async (req, res) => {
   try {
@@ -235,16 +271,29 @@ router.post('/:id/register', authenticateToken, async (req, res) => {
       return res.status(400).json({ error: 'Game has already ended' });
     }
 
-    // Check if user already registered for this game
-    const { data: existingParticipation } = await supabaseAdmin
+    // Get all user's participations for this game to check for sheet conflicts
+    const { data: existingParticipations } = await supabaseAdmin
       .from('game_participants')
-      .select('*')
+      .select('selected_sheet_numbers')
       .eq('game_id', gameId)
-      .eq('user_id', userId)
-      .single();
+      .eq('user_id', userId);
 
-    if (existingParticipation) {
-      return res.status(400).json({ error: 'You have already registered for this game' });
+    // Check if any of the selected sheets are already taken by this user
+    const userTakenSheets = [];
+    if (existingParticipations && existingParticipations.length > 0) {
+      existingParticipations.forEach(participation => {
+        if (participation.selected_sheet_numbers) {
+          userTakenSheets.push(...participation.selected_sheet_numbers);
+        }
+      });
+    }
+
+    // Check for conflicts with user's own sheets
+    const conflictingSheets = selectedSheetNumbers.filter(sheet => userTakenSheets.includes(sheet));
+    if (conflictingSheets.length > 0) {
+      return res.status(400).json({ 
+        error: `You have already purchased these sheets: ${conflictingSheets.join(', ')}. Please select different sheets.` 
+      });
     }
 
     // Calculate total amount based on sheets selected
@@ -534,6 +583,78 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
   } catch (error) {
     console.error('Error in secure sheet download:', error);
     res.status(500).json({ error: 'Download failed' });
+  }
+});
+
+// Direct download endpoint for secure downloads
+router.get('/sheets/direct-download/:participationId/:sheetNumber', authenticateToken, async (req, res) => {
+  try {
+    const { participationId, sheetNumber } = req.params;
+    const userId = req.user.userId;
+
+    // Verify participation and authorization
+    const { data: participation, error } = await supabaseAdmin
+      .from('game_participants')
+      .select(`
+        *,
+        games (
+          sheets_folder_id,
+          sheet_file_format,
+          name
+        )
+      `)
+      .eq('id', participationId)
+      .eq('user_id', userId)
+      .eq('payment_status', 'approved')
+      .single();
+
+    if (error || !participation) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Check if user is authorized for this sheet
+    const sheetNum = parseInt(sheetNumber);
+    if (!participation.selected_sheet_numbers.includes(sheetNum)) {
+      return res.status(403).json({ error: 'You are not authorized to download this sheet' });
+    }
+
+    const game = participation.games;
+    const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', sheetNumber);
+
+    // In a real implementation, this would generate a direct download URL from Google Drive
+    // For now, return the folder URL with security warning
+    const folderUrl = `https://drive.google.com/drive/folders/${game.sheets_folder_id}`;
+    
+    res.json({
+      success: true,
+      directUrl: null, // Would be the actual file URL from Google Drive API
+      fallbackUrl: folderUrl,
+      fileName: fileName,
+      message: 'Direct download not available. Opening folder with security restrictions.'
+    });
+
+  } catch (error) {
+    console.error('Error in direct download:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Log folder access for security monitoring
+router.post('/sheets/log-folder-access', authenticateToken, async (req, res) => {
+  try {
+    const { participationId, sheetNumber, gameId, timestamp, userAgent } = req.body;
+    const userId = req.user.userId;
+
+    // Log the access attempt
+    console.log(`🔒 SECURITY LOG: User ${userId} accessed folder for game ${gameId}, participation ${participationId}, sheet ${sheetNumber} at ${timestamp}`);
+    console.log(`🔒 User Agent: ${userAgent}`);
+
+    // In a real implementation, you might want to store this in a security_logs table
+    
+    res.json({ success: true, logged: true });
+  } catch (error) {
+    console.error('Error logging folder access:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

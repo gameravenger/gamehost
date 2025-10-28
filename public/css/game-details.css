@@ -386,6 +386,34 @@
   color: white;
 }
 
+.sheet-number.sold {
+  background: #e0e0e0;
+  border-color: #bbb;
+  color: #999;
+  cursor: not-allowed;
+  position: relative;
+  opacity: 0.6;
+}
+
+.sheet-number.sold:hover {
+  background: #e0e0e0;
+  border-color: #bbb;
+  transform: none;
+}
+
+.sold-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.6rem;
+  font-weight: bold;
+  color: #666;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
 /* Selection Summary */
 .selection-summary {
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));

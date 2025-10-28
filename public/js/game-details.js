@@ -66,10 +66,11 @@ class GameDetailsManager {
     return imageUrl;
   }
 
-  init() {
+  async init() {
     this.gameId = this.getGameIdFromURL();
     if (this.gameId) {
-      this.loadGameDetails();
+      await this.loadGameDetails();
+      await this.loadSoldSheets();
     } else {
       this.showError('Game not found');
     }
@@ -272,6 +273,17 @@ class GameDetailsManager {
     }
   }
 
+  async loadSoldSheets() {
+    try {
+      const response = await app.apiCall(`/games/${this.gameId}/sold-sheets`);
+      this.soldSheets = response.soldSheets || [];
+      console.log('Sold sheets loaded:', this.soldSheets);
+    } catch (error) {
+      console.error('Error loading sold sheets:', error);
+      this.soldSheets = [];
+    }
+  }
+
   generateSheetGrid() {
     const sheetGrid = document.getElementById('sheetGrid');
     if (!sheetGrid) return;
@@ -284,17 +296,31 @@ class GameDetailsManager {
       sheetNumbers.push(i);
     }
 
-    sheetGrid.innerHTML = sheetNumbers.map(num => `
-      <div class="sheet-number" data-sheet="${num}" onclick="gameDetails.toggleSheetSelection(${num})">
-        ${num}
-      </div>
-    `).join('');
+    sheetGrid.innerHTML = sheetNumbers.map(num => {
+      const isSold = this.soldSheets && this.soldSheets.includes(num);
+      const soldClass = isSold ? 'sold' : '';
+      const clickHandler = isSold ? '' : `onclick="gameDetails.toggleSheetSelection(${num})"`;
+      const soldIndicator = isSold ? '<span class="sold-indicator">SOLD</span>' : '';
+      
+      return `
+        <div class="sheet-number ${soldClass}" data-sheet="${num}" ${clickHandler}>
+          ${num}
+          ${soldIndicator}
+        </div>
+      `;
+    }).join('');
   }
 
   toggleSheetSelection(sheetNumber) {
     // Ensure sheetNumber is always an integer
     const sheetNum = parseInt(sheetNumber);
     const sheetElement = document.querySelector(`[data-sheet="${sheetNum}"]`);
+    
+    // Check if sheet is sold
+    if (this.soldSheets && this.soldSheets.includes(sheetNum)) {
+      app.showNotification(`Sheet ${sheetNum} is already sold and not available`, 'error');
+      return;
+    }
     
     if (this.selectedSheets.includes(sheetNum)) {
       // Remove from selection

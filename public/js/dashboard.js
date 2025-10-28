@@ -480,8 +480,35 @@ ERROR DETAILS:
                 // Handle secure proxy download - NO Google Drive exposure
                 console.log(`🔐 DOWNLOAD: Using secure server-side proxy`);
 
-                // Check if this is a secure proxy download
-                if (response.downloadMethod === 'secure_proxy') {
+                // Check download method and handle appropriately
+                if (response.downloadMethod === 'secure_token') {
+                  console.log(`🎫 DOWNLOAD: Using secure token for ${fileName}`);
+
+                  // Get the secure download token
+                  const tokenResponse = await app.apiCall(response.downloadUrl.replace('/api', ''));
+                  
+                  if (tokenResponse.success && tokenResponse.downloadUrl) {
+                    console.log(`✅ DOWNLOAD: Got secure download URL for ${fileName}`);
+
+                    // Create direct download link
+                    const link = document.createElement('a');
+                    link.href = tokenResponse.downloadUrl;
+                    link.download = fileName;
+                    link.style.display = 'none';
+
+                    // Add to DOM, trigger download, remove
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    // Update UI to show downloaded status
+                    this.markSheetAsDownloaded(participationId, sheetNumber);
+
+                    app.showNotification(`✅ ${fileName} downloaded successfully (Secure)`, 'success');
+                  } else {
+                    throw new Error('Failed to get secure download token');
+                  }
+                } else if (response.downloadMethod === 'secure_proxy') {
                   console.log(`✅ DOWNLOAD: Using secure proxy for ${fileName} (NO Google Drive exposure)`);
 
                   // Create secure download link through our server proxy

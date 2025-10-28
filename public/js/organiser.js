@@ -635,8 +635,8 @@ class OrganiserManager {
                 🔍 Auto-Scan
               </button>
             ` : ''}
-            <button class="btn btn-success btn-sm" onclick="organiserManager.uploadSheets('${game.id}')" title="Upload sheet files directly">
-              📤 Upload Sheets
+            <button class="btn btn-success btn-sm" onclick="organiserManager.configureLinks('${game.id}')" title="Configure direct download links">
+              🔗 Configure Links
             </button>
             ${game.status === 'upcoming' ? `
               <button class="btn btn-success btn-sm" onclick="organiserManager.startGame('${game.id}')">
@@ -763,16 +763,126 @@ class OrganiserManager {
     document.querySelector('.modal-overlay')?.remove();
   }
 
-  // Upload sheets directly to server
-  uploadSheets(gameId) {
+  // Configure direct links for sheets
+  configureLinks(gameId) {
     const game = this.games.find(g => g.id === gameId);
     if (!game) {
       app.showNotification('Game not found', 'error');
       return;
     }
 
-    // Redirect to upload page
-    window.location.href = `/upload-sheets.html?gameId=${gameId}`;
+    this.showLinkConfigurationModal(gameId, game.name);
+  }
+
+  // Show link configuration modal
+  showLinkConfigurationModal(gameId, gameName) {
+    const modal = document.createElement('div');
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-content" style="max-width: 700px;">
+        <h3>🔗 Configure Sheet Download Links</h3>
+        <p><strong>Game:</strong> ${gameName}</p>
+        
+        <div class="config-instructions" style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 15px 0;">
+          <h4>📋 Simple Setup (No file storage costs):</h4>
+          <ol style="margin: 10px 0; padding-left: 20px;">
+            <li><strong>For each sheet in Google Drive:</strong> Right-click → Share → Copy link</li>
+            <li><strong>Make sure each file is shared:</strong> "Anyone with the link can view"</li>
+            <li><strong>Paste the links below</strong> (one per sheet)</li>
+          </ol>
+        </div>
+        
+        <div class="link-input-area" style="max-height: 300px; overflow-y: auto;">
+          <h4>🔗 Sheet Links:</h4>
+          <div id="linkInputs">
+            <div class="link-input-row" style="margin: 10px 0; display: flex; gap: 10px; align-items: center;">
+              <span style="width: 80px;">Sheet 1:</span>
+              <input type="url" placeholder="https://drive.google.com/file/d/1ABC123.../view" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+            </div>
+          </div>
+          <button class="btn btn-secondary btn-sm" onclick="organiserManager.addMoreLinkInputs()" style="margin: 10px 0;">
+            + Add More Sheets
+          </button>
+        </div>
+        
+        <div class="modal-actions" style="margin-top: 20px;">
+          <button class="btn btn-primary" onclick="organiserManager.saveLinkConfiguration('${gameId}')">
+            💾 Save Configuration
+          </button>
+          <button class="btn btn-secondary" onclick="this.parentElement.parentElement.parentElement.remove()">
+            Cancel
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+  }
+
+  // Add more link input rows
+  addMoreLinkInputs() {
+    const linkInputs = document.getElementById('linkInputs');
+    const currentCount = linkInputs.children.length;
+    const newSheetNumber = currentCount + 1;
+    
+    const newRow = document.createElement('div');
+    newRow.className = 'link-input-row';
+    newRow.style.cssText = 'margin: 10px 0; display: flex; gap: 10px; align-items: center;';
+    newRow.innerHTML = `
+      <span style="width: 80px;">Sheet ${newSheetNumber}:</span>
+      <input type="url" placeholder="https://drive.google.com/file/d/1ABC123.../view" style="flex: 1; padding: 8px; border: 1px solid #ddd; border-radius: 4px;">
+    `;
+    
+    linkInputs.appendChild(newRow);
+  }
+
+  // Save link configuration
+  async saveLinkConfiguration(gameId) {
+    try {
+      const linkInputs = document.querySelectorAll('#linkInputs input[type="url"]');
+      const sheetLinks = [];
+      
+      linkInputs.forEach((input, index) => {
+        if (input.value.trim()) {
+          sheetLinks.push({
+            sheetNumber: index + 1,
+            googleDriveUrl: input.value.trim()
+          });
+        }
+      });
+      
+      if (sheetLinks.length === 0) {
+        app.showNotification('Please provide at least one sheet link', 'warning');
+        return;
+      }
+      
+      app.showNotification(`🔗 Configuring ${sheetLinks.length} sheet links...`, 'info');
+      
+      const response = await app.apiCall(`/organiser/games/${gameId}/configure-links`, 'POST', {
+        sheetLinks: sheetLinks
+      });
+      
+      if (response.success) {
+        app.showNotification(`✅ Successfully configured ${response.totalSheets} sheet links!`, 'success');
+        
+        // Update the game in our local data
+        const gameIndex = this.games.findIndex(g => g.id === gameId);
+        if (gameIndex !== -1) {
+          this.games[gameIndex].individual_sheet_files = response.sheetFiles || {};
+        }
+        
+        // Re-render games and close modal
+        this.renderActiveGames(this.games);
+        document.querySelector('.modal-overlay')?.remove();
+        
+      } else {
+        throw new Error(response.error || 'Configuration failed');
+      }
+      
+    } catch (error) {
+      console.error('💥 LINK CONFIG ERROR:', error);
+      app.showNotification(`❌ Configuration failed: ${error.message}`, 'error');
+    }
   }
 
   filterGames(status) {

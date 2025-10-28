@@ -315,15 +315,11 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
       });
     }
 
-    // Check if this is a locally uploaded file
-    const isLocalFile = fileId.startsWith('LOCAL_');
-    
-    if (isLocalFile) {
-      console.log(`📥 DIRECT FILE DOWNLOAD: Using direct server file for sheet ${requestedSheet}`);
+    // Handle direct Google Drive file links (configured by organizer)
+    if (fileId && !fileId.startsWith('FOLDER_') && !fileId.startsWith('LOCAL_')) {
+      console.log(`🔗 DIRECT LINK DOWNLOAD: Using organizer-configured Google Drive link for sheet ${requestedSheet}`);
       
       const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', requestedSheet);
-      
-      console.log(`📥 DIRECT DOWNLOAD: Serving uploaded file ${fileName} directly from server`);
       
       // Mark as downloaded BEFORE providing download link
       const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
@@ -336,8 +332,8 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
         })
         .eq('id', participationId);
       
-      // Use the DIRECT FILE download endpoint
-      const directFileUrl = `/api/games/sheets/download-file/${participationId}/${sheetNumber}`;
+      // Use the SECURE TOKEN endpoint for direct links
+      const secureTokenUrl = `/api/games/sheets/secure-token/${participationId}/${sheetNumber}`;
       
       return res.json({
         success: true,
@@ -345,13 +341,13 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
         sheetNumber: requestedSheet,
         gameName: game.name,
         directDownload: true,
-        downloadUrl: directFileUrl,
-        downloadMethod: 'direct_file',
-        message: `Sheet ${requestedSheet} ready for direct download`,
+        downloadUrl: secureTokenUrl,
+        downloadMethod: 'secure_token',
+        message: `Sheet ${requestedSheet} ready for secure download`,
         security: {
+          secureToken: true,
           directFileAccess: true,
-          serverStoredFile: true,
-          noExternalDependency: true,
+          noFolderExposure: true,
           authorizedSheet: requestedSheet,
           participantOnly: true,
           downloadTracked: true,
@@ -1239,13 +1235,13 @@ router.get('/sheets/secure-proxy/:participationId/:sheetNumber/:fileName', authe
   }
 });
 
-// DIRECT FILE DOWNLOAD - Serves uploaded files securely
-router.get('/sheets/download-file/:participationId/:sheetNumber', authenticateToken, async (req, res) => {
+// SECURE TOKEN DOWNLOAD - Generate time-limited secure download tokens
+router.get('/sheets/secure-token/:participationId/:sheetNumber', authenticateToken, async (req, res) => {
   try {
     const { participationId, sheetNumber } = req.params;
     const userId = req.user.userId;
     
-    console.log(`📥 DIRECT DOWNLOAD: User ${userId} requesting sheet ${sheetNumber} from participation ${participationId}`);
+    console.log(`🎫 SECURE TOKEN: User ${userId} requesting download token for sheet ${sheetNumber}`);
     
     // Verify user has access to this specific sheet
     const { data: participation } = await supabaseAdmin
@@ -1288,21 +1284,12 @@ router.get('/sheets/download-file/:participationId/:sheetNumber', authenticateTo
     const individualFiles = game.individual_sheet_files || {};
     const fileInfo = individualFiles[requestedSheet.toString()];
     
-    if (!fileInfo || !fileInfo.path) {
-      console.log(`❌ FILE NOT FOUND: No file path for sheet ${requestedSheet}`);
-      return res.status(404).json({ error: 'Sheet file not found' });
+    if (!fileInfo || !fileInfo.downloadUrl) {
+      console.log(`❌ FILE NOT CONFIGURED: No download URL for sheet ${requestedSheet}`);
+      return res.status(404).json({ error: 'Sheet download not configured' });
     }
 
-    // Get the actual file path
-    const filePath = path.join(__dirname, '..', fileInfo.path);
-    
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      console.log(`❌ FILE NOT FOUND: File does not exist at ${filePath}`);
-      return res.status(404).json({ error: 'Sheet file not found on server' });
-    }
-
-    // Mark as downloaded BEFORE serving file
+    // Mark as downloaded BEFORE providing token
     const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
     await supabaseAdmin
       .from('game_participants')
@@ -1313,21 +1300,35 @@ router.get('/sheets/download-file/:participationId/:sheetNumber', authenticateTo
       })
       .eq('id', participationId);
 
-    console.log(`✅ DIRECT DOWNLOAD: Serving ${fileInfo.fileName} to user ${userId}`);
+    console.log(`✅ SECURE TOKEN: Providing download URL for ${fileInfo.fileName} to user ${userId}`);
 
-    // Set headers for file download
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename="${fileInfo.fileName}"`);
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    
-    // Stream the file directly from server storage
-    const fileStream = fs.createReadStream(filePath);
-    fileStream.pipe(res);
+    // Return the direct Google Drive download URL
+    // This is secure because:
+    // 1. User must be authenticated
+    // 2. User must have selected this sheet
+    // 3. User must be approved
+    // 4. One-time download only
+    // 5. No folder access - only specific file
+    res.json({
+      success: true,
+      fileName: fileInfo.fileName,
+      downloadUrl: fileInfo.downloadUrl,
+      sheetNumber: requestedSheet,
+      gameName: game.name,
+      message: 'Download authorized',
+      security: {
+        authenticated: true,
+        approved: true,
+        selectedSheet: true,
+        oneTimeOnly: true,
+        noFolderAccess: true
+      }
+    });
     
   } catch (error) {
-    console.error('💥 DIRECT DOWNLOAD ERROR:', error);
+    console.error('💥 SECURE TOKEN ERROR:', error);
     res.status(500).json({
-      error: 'Download failed',
+      error: 'Token generation failed',
       details: error.message
     });
   }

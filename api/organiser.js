@@ -700,18 +700,18 @@ router.post('/scan-folder-preview', authenticateOrganiser, async (req, res) => {
   }
 });
 
-// UPLOAD SHEETS - Direct file upload to server (RELIABLE SOLUTION)
-router.post('/games/:gameId/upload-sheets', authenticateOrganiser, upload.array('sheets', 100), async (req, res) => {
+// CONFIGURE DIRECT LINKS - Organizers provide Google Drive file links directly
+router.post('/games/:gameId/configure-links', authenticateOrganiser, async (req, res) => {
   try {
     const { gameId } = req.params;
-    const uploadedFiles = req.files;
+    const { sheetLinks } = req.body; // Array of {sheetNumber, googleDriveUrl}
 
-    console.log(`📤 UPLOAD: Received ${uploadedFiles.length} files for game ${gameId}`);
+    console.log(`🔗 CONFIGURE: Received ${sheetLinks.length} direct links for game ${gameId}`);
 
-    if (!uploadedFiles || uploadedFiles.length === 0) {
+    if (!sheetLinks || sheetLinks.length === 0) {
       return res.status(400).json({
-        error: 'No files uploaded',
-        message: 'Please select PDF files to upload'
+        error: 'No sheet links provided',
+        message: 'Please provide Google Drive file links'
       });
     }
 
@@ -732,63 +732,66 @@ router.post('/games/:gameId/upload-sheets', authenticateOrganiser, upload.array(
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Process uploaded files and create mapping
+    // Process and validate links
     const sheetFiles = {};
-    const uploadedSheets = [];
+    const configuredSheets = [];
 
-    uploadedFiles.forEach(file => {
-      const sheetMatch = file.filename.match(/Sheet_(\d+)/);
-      if (sheetMatch) {
-        const sheetNumber = parseInt(sheetMatch[1]);
-        const relativePath = path.relative(path.join(__dirname, '..'), file.path);
+    sheetLinks.forEach(link => {
+      const { sheetNumber, googleDriveUrl } = link;
+      
+      // Extract file ID from Google Drive URL
+      const fileIdMatch = googleDriveUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      if (fileIdMatch) {
+        const fileId = fileIdMatch[1];
         
         sheetFiles[sheetNumber] = {
-          fileId: `LOCAL_${gameId}_${sheetNumber}`,
-          fileName: file.filename,
-          originalName: file.originalname,
-          size: file.size,
-          path: relativePath,
-          uploadedAt: new Date().toISOString()
+          fileId: fileId,
+          fileName: `Sheet_${sheetNumber}.pdf`,
+          directUrl: googleDriveUrl,
+          downloadUrl: `https://drive.google.com/uc?export=download&id=${fileId}`,
+          configuredAt: new Date().toISOString()
         };
         
-        uploadedSheets.push(sheetNumber);
-        console.log(`✅ UPLOAD: Sheet ${sheetNumber} -> ${file.filename} (${file.size} bytes)`);
+        configuredSheets.push(parseInt(sheetNumber));
+        console.log(`✅ CONFIGURE: Sheet ${sheetNumber} -> ${fileId}`);
+      } else {
+        console.log(`⚠️ CONFIGURE: Invalid Google Drive URL for sheet ${sheetNumber}`);
       }
     });
 
-    // Update game with uploaded sheet information
+    // Update game with configured links
     const { error: updateError } = await supabaseAdmin
       .from('games')
       .update({
         individual_sheet_files: sheetFiles,
-        total_sheets: uploadedSheets.length,
-        sheets_uploaded: true,
-        upload_method: 'direct_upload',
+        total_sheets: configuredSheets.length,
+        sheets_configured: true,
+        configuration_method: 'direct_links',
         updated_at: new Date().toISOString()
       })
       .eq('id', gameId);
 
     if (updateError) {
-      console.error('❌ UPLOAD: Database update failed:', updateError);
+      console.error('❌ CONFIGURE: Database update failed:', updateError);
       return res.status(500).json({ error: 'Failed to update game data' });
     }
 
-    console.log(`✅ UPLOAD: Successfully uploaded ${uploadedSheets.length} sheets for game ${game.name}`);
+    console.log(`✅ CONFIGURE: Successfully configured ${configuredSheets.length} sheet links for game ${game.name}`);
 
     res.json({
       success: true,
-      message: `Successfully uploaded ${uploadedSheets.length} sheets`,
-      uploadedSheets: uploadedSheets.sort((a, b) => a - b),
-      totalSheets: uploadedSheets.length,
+      message: `Successfully configured ${configuredSheets.length} sheet links`,
+      configuredSheets: configuredSheets.sort((a, b) => a - b),
+      totalSheets: configuredSheets.length,
       gameName: game.name,
-      uploadMethod: 'direct_upload',
+      configurationMethod: 'direct_links',
       sheetFiles: sheetFiles
     });
 
   } catch (error) {
-    console.error('💥 UPLOAD ERROR:', error);
+    console.error('💥 CONFIGURE ERROR:', error);
     res.status(500).json({
-      error: 'Upload failed',
+      error: 'Configuration failed',
       details: error.message
     });
   }

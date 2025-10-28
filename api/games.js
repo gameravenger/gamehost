@@ -593,8 +593,8 @@ router.get('/:id/download-sheets', authenticateToken, async (req, res) => {
   }
 });
 
-// SIMPLE AUTH TEST ENDPOINT
-router.get('/auth-test', authenticateToken, (req, res) => {
+// SIMPLE AUTH TEST ENDPOINT - moved to avoid route conflict
+router.get('/test/auth', authenticateToken, (req, res) => {
   res.json({
     success: true,
     message: 'Authentication working',

@@ -208,26 +208,45 @@ class GoogleDriveStorage {
       });
 
       // Make file publicly accessible
-      await this.drive.permissions.create({
-        fileId: response.data.id,
-        resource: {
-          role: 'reader',
-          type: 'anyone'
-        },
-        supportsAllDrives: true,  // CRITICAL: Required for Shared Drives
-        supportsTeamDrives: true  // For backward compatibility
-      });
+      try {
+        await this.drive.permissions.create({
+          fileId: response.data.id,
+          resource: {
+            role: 'reader',
+            type: 'anyone'
+          },
+          supportsAllDrives: true,  // CRITICAL: Required for Shared Drives
+          supportsTeamDrives: true  // For backward compatibility
+        });
+        console.log(`✅ PUBLIC: File ${response.data.id} is now publicly accessible`);
+      } catch (permError) {
+        console.error('⚠️ WARNING: Could not set public permission:', permError.message);
+        console.log('📝 File is accessible to Shared Drive members only');
+        // Continue anyway - file is uploaded, just not public
+      }
 
       console.log(`✅ UPLOADED: ${fileName} - ID: ${response.data.id}`);
 
+      // Generate multiple URL formats for maximum compatibility
+      const fileId = response.data.id;
+      
       return {
-        fileId: response.data.id,
+        fileId: fileId,
         fileName: response.data.name,
         size: response.data.size,
         createdTime: response.data.createdTime,
         webViewLink: response.data.webViewLink,
         webContentLink: response.data.webContentLink,
-        downloadUrl: `https://drive.google.com/uc?export=download&id=${response.data.id}`
+        // Direct link for viewing/downloading
+        downloadUrl: `https://drive.google.com/uc?export=download&id=${fileId}`,
+        // Direct image link (works for displaying images)
+        directLink: `https://drive.google.com/uc?id=${fileId}`,
+        // Thumbnail link (smaller, faster loading)
+        thumbnailLink: `https://drive.google.com/thumbnail?id=${fileId}&sz=w1000`,
+        // View link
+        viewLink: `https://drive.google.com/file/d/${fileId}/view`,
+        // Embed link (for iframes)
+        embedLink: `https://drive.google.com/file/d/${fileId}/preview`
       };
 
     } catch (error) {

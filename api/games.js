@@ -1156,8 +1156,13 @@ router.get('/sheets/secure-proxy/:participationId/:sheetNumber/:fileName', authe
     const selectedSheets = participation.selected_sheet_numbers || [];
     const requestedSheet = parseInt(sheetNumber);
     
-    if (!selectedSheets.includes(requestedSheet)) {
-      console.log(`❌ SECURITY: User ${userId} did not select sheet ${requestedSheet}`);
+    // Convert all selected sheets to integers for comparison (handle string/int mismatch)
+    const selectedSheetsAsNumbers = selectedSheets.map(sheet => 
+      typeof sheet === 'string' ? parseInt(sheet) : sheet
+    );
+    
+    if (!selectedSheetsAsNumbers.includes(requestedSheet)) {
+      console.log(`❌ SECURITY: User ${userId} did not select sheet ${requestedSheet}. Selected: ${selectedSheetsAsNumbers}`);
       return res.status(403).json({ error: 'Sheet not selected by user' });
     }
 
@@ -1279,8 +1284,13 @@ router.get('/sheets/secure-token/:participationId/:sheetNumber', authenticateTok
     const selectedSheets = participation.selected_sheet_numbers || [];
     const requestedSheet = parseInt(sheetNumber);
     
-    if (!selectedSheets.includes(requestedSheet)) {
-      console.log(`❌ SECURITY: User ${userId} did not select sheet ${requestedSheet}`);
+    // Convert all selected sheets to integers for comparison (handle string/int mismatch)
+    const selectedSheetsAsNumbers = selectedSheets.map(sheet => 
+      typeof sheet === 'string' ? parseInt(sheet) : sheet
+    );
+    
+    if (!selectedSheetsAsNumbers.includes(requestedSheet)) {
+      console.log(`❌ SECURITY: User ${userId} did not select sheet ${requestedSheet}. Selected: ${selectedSheetsAsNumbers}`);
       return res.status(403).json({ error: 'Sheet not selected by user' });
     }
 

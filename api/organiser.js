@@ -766,16 +766,27 @@ router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, (req, res, 
     });
   }
   
-  console.log(`📤 Creating upload handler for folder: ${process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID}`);
+  const currentFolderId = process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID;
+  console.log(`📤 Creating upload handler for folder: ${currentFolderId}`);
+  console.log(`📤 Folder ID type: ${typeof currentFolderId}, length: ${currentFolderId ? currentFolderId.length : 0}`);
+  console.log(`📤 Environment check:`, {
+    hasEnvVar: !!process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID,
+    value: process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID,
+    isString: typeof process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID === 'string'
+  });
   
   let googleDriveUpload;
   try {
     googleDriveUpload = createGoogleDriveUpload();
+    console.log('✅ Google Drive uploader created successfully');
   } catch (error) {
     console.error('❌ Failed to create Google Drive uploader:', error.message);
+    console.error('❌ Full error:', error);
+    console.error('❌ Stack:', error.stack);
     return res.status(500).json({
       error: 'Failed to initialize Google Drive uploader',
-      message: error.message
+      message: error.message,
+      details: error.stack
     });
   }
   googleDriveUpload.array('files', 100)(req, res, (err) => {

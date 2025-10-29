@@ -1296,7 +1296,14 @@ router.get('/sheets/secure-token/:participationId/:sheetNumber', authenticateTok
 
     // Check if already downloaded (one-time download)
     const downloadedSheets = participation.downloaded_sheet_numbers || [];
-    if (downloadedSheets.includes(requestedSheet)) {
+    // Convert to numbers for comparison (handle type mismatch)
+    const downloadedSheetsAsNumbers = downloadedSheets.map(sheet => 
+      typeof sheet === 'string' ? parseInt(sheet) : parseInt(sheet)
+    );
+    
+    console.log(`🔍 TOKEN DOWNLOAD CHECK: Requested ${requestedSheet}, Downloaded: ${JSON.stringify(downloadedSheetsAsNumbers)}, Raw: ${JSON.stringify(downloadedSheets)}`);
+    
+    if (downloadedSheetsAsNumbers.includes(requestedSheet)) {
       console.log(`❌ SECURITY: Sheet ${requestedSheet} already downloaded by user ${userId}`);
       return res.status(409).json({ error: 'Sheet already downloaded' });
     }

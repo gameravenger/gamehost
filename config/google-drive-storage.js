@@ -170,13 +170,26 @@ class GoogleDriveStorage {
       // Extract clean folder ID from URL or ID
       const parentFolderId = parentFolderIdOrUrl ? this.extractFolderId(parentFolderIdOrUrl) : null;
       
-      if (parentFolderIdOrUrl && !parentFolderId) {
-        throw new Error(`Invalid Google Drive folder ID or URL: ${parentFolderIdOrUrl}`);
+      console.log('🔍 UPLOAD DEBUG:', {
+        inputFolderId: parentFolderIdOrUrl,
+        extractedFolderId: parentFolderId,
+        fileName: fileName
+      });
+      
+      // CRITICAL: Service accounts MUST have a parent folder
+      if (!parentFolderId) {
+        throw new Error(
+          '❌ CRITICAL: No parent folder specified!\n' +
+          'Service accounts cannot upload to "My Drive" - they have no storage quota.\n' +
+          'You MUST specify a folder ID that is shared with the service account.\n' +
+          'Check GOOGLE_DRIVE_STORAGE_FOLDER_ID environment variable.\n' +
+          'See GOOGLE_DRIVE_SERVICE_ACCOUNT_FIX.md for setup.'
+        );
       }
 
       const fileMetadata = {
         name: fileName,
-        parents: parentFolderId ? [parentFolderId] : undefined
+        parents: [parentFolderId] // Always required for service accounts
       };
 
       const media = {
@@ -184,7 +197,7 @@ class GoogleDriveStorage {
         body: fs.createReadStream(filePath)
       };
 
-      console.log(`☁️ UPLOADING: ${fileName} to Google Drive...`);
+      console.log(`☁️  Uploading to folder: ${parentFolderId}`);
 
       const response = await this.drive.files.create({
         resource: fileMetadata,
@@ -214,7 +227,35 @@ class GoogleDriveStorage {
       };
 
     } catch (error) {
-      console.error('❌ Google Drive upload failed:', error);
+      console.error('❌ Google Drive upload failed:', error.message);
+      
+      // Enhanced error messages for common issues
+      if (error.message && error.message.includes('storage quota')) {
+        console.error('');
+        console.error('💡 SOLUTION: The folder must be SHARED with the service account email!');
+        console.error('   1. Open your service account JSON file');
+        console.error('   2. Find the "client_email" field');
+        console.error('   3. Go to Google Drive and share the folder with that email');
+        console.error('   4. Give it "Editor" permission (not Viewer!)');
+        console.error('   5. The email looks like: name@project.iam.gserviceaccount.com');
+        console.error('');
+        console.error('📖 See QUICK_FIX_CHECKLIST.md for detailed instructions');
+        console.error('');
+      } else if (error.code === 404) {
+        console.error('');
+        console.error('💡 SOLUTION: Folder not found or not shared!');
+        console.error(`   - Folder ID used: ${parentFolderId || 'NONE!'}`);
+        console.error('   - Check GOOGLE_DRIVE_STORAGE_FOLDER_ID is correct');
+        console.error('   - Ensure folder is shared with service account email');
+        console.error('');
+      } else if (error.code === 403) {
+        console.error('');
+        console.error('💡 SOLUTION: Permission denied!');
+        console.error('   - Service account needs "Editor" permission (not "Viewer")');
+        console.error('   - Check folder sharing settings in Google Drive');
+        console.error('');
+      }
+      
       throw error;
     }
   }
@@ -414,6 +455,8 @@ class MulterGoogleDriveStorage {
         }
 
         // Upload to Google Drive
+        console.log(`📤 Multer: Uploading ${file.originalname} to folder: ${this.parentFolderId}`);
+        
         const uploadResult = await this.driveStorage.uploadFile(
           finalFilePath,
           file.originalname,

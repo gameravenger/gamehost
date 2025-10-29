@@ -270,49 +270,9 @@ class OrganiserManager {
   }
 
   initializeImagePreviews() {
-    // Initialize banner image preview
-    const bannerInput = document.getElementById('bannerImageUrl');
-    const bannerPreview = document.getElementById('bannerPreview');
-    const bannerPreviewImg = document.getElementById('bannerPreviewImg');
-
-    if (bannerInput && bannerPreview && bannerPreviewImg) {
-      bannerInput.addEventListener('input', (e) => {
-        const url = e.target.value.trim();
-        if (url) {
-          bannerPreviewImg.onload = () => {
-            bannerPreview.style.display = 'block';
-          };
-          bannerPreviewImg.onerror = () => {
-            bannerPreview.style.display = 'none';
-          };
-          bannerPreviewImg.src = url;
-        } else {
-          bannerPreview.style.display = 'none';
-        }
-      });
-    }
-
-    // Initialize QR code preview
-    const qrInput = document.getElementById('paymentQrCodeUrl');
-    const qrPreview = document.getElementById('qrPreview');
-    const qrPreviewImg = document.getElementById('qrPreviewImg');
-
-    if (qrInput && qrPreview && qrPreviewImg) {
-      qrInput.addEventListener('input', (e) => {
-        const url = e.target.value.trim();
-        if (url) {
-          qrPreviewImg.onload = () => {
-            qrPreview.style.display = 'block';
-          };
-          qrPreviewImg.onerror = () => {
-            qrPreview.style.display = 'none';
-          };
-          qrPreviewImg.src = url;
-        } else {
-          qrPreview.style.display = 'none';
-        }
-      });
-    }
+    // Image previews are now handled by the new drag & drop upload system
+    // This function is kept for compatibility but functionality moved to upload interface
+    console.log('📤 New upload system initialized - use "Upload to Drive" button for images');
   }
 
   async loadSectionData(section) {
@@ -538,22 +498,23 @@ class OrganiserManager {
 
       const data = {
         name: formData.get('gameName'),
-        bannerImageUrl: formData.get('bannerImageUrl'),
+        bannerImageUrl: formData.get('bannerImageUrl') === 'upload_after_creation' ? null : formData.get('bannerImageUrl'),
         totalPrize: parseFloat(formData.get('totalPrize')),
         pricePerSheet1: parseFloat(formData.get('pricePerSheet1')),
         pricePerSheet2: parseFloat(formData.get('pricePerSheet2')),
         pricePerSheet3Plus: parseFloat(formData.get('pricePerSheet3Plus')),
-        paymentQrCodeUrl: formData.get('paymentQrCodeUrl'),
+        paymentQrCodeUrl: formData.get('paymentQrCodeUrl') === 'upload_after_creation' ? null : formData.get('paymentQrCodeUrl'),
         zoomLink: formData.get('zoomLink'),
         zoomPassword: formData.get('zoomPassword'),
         gameDate: formData.get('gameDate'),
         gameTime: formData.get('gameTime'),
-        sheetsFolder: sheetsFolderId,
-        totalSheets: parseInt(formData.get('totalSheets')),
-        sheetFileFormat: formData.get('sheetFileFormat'),
+        sheetsFolder: formData.get('sheetsFolder') === 'upload_after_creation' ? null : sheetsFolderId,
+        totalSheets: parseInt(formData.get('totalSheets')) || 0,
+        sheetFileFormat: formData.get('sheetFileFormat') || 'Sheet_{number}.pdf',
         customFormat: formData.get('customFormat'),
         individualSheetFiles: individualSheetFiles, // Auto-scanned individual file IDs
-        autoScanned: Object.keys(individualSheetFiles).length > 0
+        autoScanned: Object.keys(individualSheetFiles).length > 0,
+        uploadMethod: 'new_drag_drop_system' // Flag to indicate new upload system
       };
 
       const response = await app.apiCall('/organiser/games', 'POST', data);

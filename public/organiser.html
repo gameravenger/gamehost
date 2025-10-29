@@ -266,12 +266,24 @@
                             </div>
                             
                             <div class="form-group">
-                                <label for="bannerImageUrl">Banner Image URL</label>
-                                <input type="url" id="bannerImageUrl" name="bannerImageUrl" placeholder="https://your-canva-image-url.com/image.jpg" required>
-                                <small>Paste your Canva image URL here (Recommended: 400x600px portrait)</small>
-                                <div class="image-preview" id="bannerPreview" style="display: none; margin-top: 10px;">
-                                    <img id="bannerPreviewImg" style="max-width: 200px; max-height: 300px; border-radius: 8px; border: 1px solid rgba(255, 107, 53, 0.3);">
+                                <label>Banner Image Upload</label>
+                                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 2px dashed #007bff;">
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 48px; margin-bottom: 10px;">🎨</div>
+                                        <h4>Upload Banner After Game Creation</h4>
+                                        <p style="margin: 10px 0; color: #666;">
+                                            After creating your game, you'll be able to upload banner images using our new drag & drop interface.
+                                        </p>
+                                        <div style="background: #e8f5e8; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                                            <strong>✅ Benefits:</strong><br>
+                                            • Auto-compression (30-70% size reduction)<br>
+                                            • Zero storage costs (uses your Google Drive)<br>
+                                            • Drag & drop + browse options<br>
+                                            • Automatic cleanup after 2 days
+                                        </div>
+                                    </div>
                                 </div>
+                                <input type="hidden" id="bannerImageUrl" name="bannerImageUrl" value="upload_after_creation">
                             </div>
                             
                             <div class="form-group">
@@ -320,12 +332,24 @@
                         <div class="form-section">
                             <h3>Payment & Meeting</h3>
                             <div class="form-group">
-                                <label for="paymentQrCodeUrl">Payment QR Code URL</label>
-                                <input type="url" id="paymentQrCodeUrl" name="paymentQrCodeUrl" placeholder="https://your-canva-qr-code-url.com/qr.jpg" required>
-                                <small>Paste your UPI QR code image URL here (Recommended: 300x300px minimum)</small>
-                                <div class="image-preview" id="qrPreview" style="display: none; margin-top: 10px;">
-                                    <img id="qrPreviewImg" style="max-width: 150px; max-height: 150px; border-radius: 8px; border: 1px solid rgba(255, 107, 53, 0.3);">
+                                <label>Payment QR Code Upload</label>
+                                <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 2px dashed #28a745;">
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 48px; margin-bottom: 10px;">💳</div>
+                                        <h4>Upload QR Code After Game Creation</h4>
+                                        <p style="margin: 10px 0; color: #666;">
+                                            After creating your game, you'll be able to upload your UPI QR code using our new drag & drop interface.
+                                        </p>
+                                        <div style="background: #e8f5e8; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                                            <strong>✅ Benefits:</strong><br>
+                                            • Auto-compression for faster loading<br>
+                                            • Zero storage costs (uses your Google Drive)<br>
+                                            • Drag & drop + browse options<br>
+                                            • Secure file handling
+                                        </div>
+                                    </div>
                                 </div>
+                                <input type="hidden" id="paymentQrCodeUrl" name="paymentQrCodeUrl" value="upload_after_creation">
                             </div>
                             
                             <div class="form-row">
@@ -342,33 +366,33 @@
 
                         <div class="form-section">
                             <h3>Game Sheets</h3>
-                            <div class="sheets-instructions">
-                                <h4>📁 How to Upload Sheets:</h4>
-                                <ol>
-                                    <li>Create a folder in your Google Drive</li>
-                                    <li>Upload all game sheets (PDF format recommended)</li>
-                                    <li>Name files as: Sheet_1.pdf, Sheet_2.pdf, etc.</li>
-                                    <li>Make folder <strong>publicly viewable</strong> (Anyone with link can view)</li>
-                                    <li>Copy the folder URL and paste below</li>
-                                </ol>
+                            <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; border: 2px dashed #ff6b35; margin-bottom: 20px;">
+                                <div style="text-align: center;">
+                                    <div style="font-size: 64px; margin-bottom: 15px;">📄</div>
+                                    <h4 style="color: #ff6b35; margin-bottom: 15px;">🚀 NEW: Revolutionary Sheet Upload System!</h4>
+                                    <p style="margin: 15px 0; color: #666; font-size: 16px;">
+                                        After creating your game, you'll be able to upload all your game sheets using our brand new drag & drop interface with incredible benefits!
+                                    </p>
+                                    
+                                    <div style="background: #e8f5e8; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: left;">
+                                        <h5 style="color: #28a745; margin-bottom: 15px;">✨ Revolutionary Benefits:</h5>
+                                        <ul style="margin: 0; padding-left: 20px; line-height: 1.8;">
+                                            <li><strong>💰 Zero Storage Costs</strong> - Uses your existing 2TB Google Drive (save $24-36/year!)</li>
+                                            <li><strong>🗜️ Auto-Compression</strong> - Reduces file sizes by 30-70% automatically</li>
+                                            <li><strong>📤 Dual Upload Methods</strong> - Drag & drop + browse button options</li>
+                                            <li><strong>🕒 Auto-Cleanup</strong> - Files automatically deleted after 2 days</li>
+                                            <li><strong>🔒 Enhanced Security</strong> - Individual file access only (no folder exposure)</li>
+                                            <li><strong>⚡ Real-time Preview</strong> - See compression stats before upload</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    <div style="background: #fff3cd; padding: 15px; border-radius: 6px; margin-top: 15px;">
+                                        <strong>🎯 How it works:</strong> Create your game → Click "☁️ Upload to Drive" → Drag & drop your sheets → Automatic compression & upload!
+                                    </div>
+                                </div>
                             </div>
                             
-                            <div class="form-group">
-                                <label for="sheetsFolder">Google Drive Folder URL or ID</label>
-                                <input type="text" id="sheetsFolder" name="sheetsFolder" required 
-                                       placeholder="https://drive.google.com/drive/folders/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms">
-                                <small>Paste your Google Drive folder URL or just the folder ID</small>
-                                <div class="folder-validation" id="folderValidation" style="display: none;">
-                                    <span class="validation-status"></span>
-                                </div>
-                                
-                                <!-- Test button for debugging -->
-                                <div style="margin-top: 10px;">
-                                    <button type="button" class="btn btn-secondary btn-sm" id="testScanBtn" style="display: none;">
-                                        🧪 Test Auto-Scan
-                                    </button>
-                                </div>
-                            </div>
+                            <input type="hidden" id="sheetsFolder" name="sheetsFolder" value="upload_after_creation">
                             
                             <div class="auto-scan-section" id="autoScanSection" style="display: none;">
                                 <div class="scan-status" id="scanStatus">

@@ -289,14 +289,14 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
     
     // Check if game has individual file IDs configured
     const individualFiles = game.individual_sheet_files || {};
-    const fileId = individualFiles[requestedSheet.toString()];
+    const fileData = individualFiles[requestedSheet.toString()];
     
     console.log(`🔍 DOWNLOAD DEBUG: Game ${game.name} (${game.id})`);
     console.log(`📊 Individual files configured:`, Object.keys(individualFiles).length > 0 ? Object.keys(individualFiles).slice(0, 5) : 'NONE');
-    console.log(`🎯 Looking for sheet ${requestedSheet}, found fileId:`, fileId ? 'YES' : 'NO');
+    console.log(`🎯 Looking for sheet ${requestedSheet}, found fileData:`, fileData ? 'YES' : 'NO');
 
     // CRITICAL SECURITY: If no individual file ID, block download completely
-    if (!fileId) {
+    if (!fileData) {
       console.log(`🚫 SECURITY BLOCK: No individual file ID for sheet ${requestedSheet} - BLOCKING DOWNLOAD`);
       
       return res.status(503).json({
@@ -315,11 +315,17 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
       });
     }
 
+    // Extract fileId from fileData (handle both object and string formats)
+    const fileId = typeof fileData === 'object' ? fileData.fileId : fileData;
+    const fileName = typeof fileData === 'object' && fileData.fileName ? 
+      fileData.fileName : 
+      (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', requestedSheet);
+    
+    console.log(`📁 FILE DATA: fileId=${fileId}, fileName=${fileName}, type=${typeof fileData}`);
+
     // Handle Google Drive storage files (uploaded with compression)
     if (fileId && !fileId.startsWith('FOLDER_') && !fileId.startsWith('LOCAL_')) {
       console.log(`☁️ GOOGLE DRIVE DOWNLOAD: Using compressed Google Drive file for sheet ${requestedSheet}`);
-      
-      const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', requestedSheet);
       
       // Mark as downloaded BEFORE providing download link
       const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
@@ -503,9 +509,9 @@ router.get('/sheets/proxy-download/:participationId/:sheetNumber', authenticateT
 
     // Check if game has individual file IDs configured
     const individualFiles = game.individual_sheet_files || {};
-    const fileId = individualFiles[sheetNumber.toString()];
+    const fileData = individualFiles[sheetNumber.toString()];
 
-    if (!fileId) {
+    if (!fileData) {
       console.log(`🚫 SECURITY: No individual file ID configured for sheet ${requestedSheet}`);
       return res.status(503).json({
         error: 'Secure download not available',
@@ -513,6 +519,9 @@ router.get('/sheets/proxy-download/:participationId/:sheetNumber', authenticateT
         code: 'NOT_CONFIGURED'
       });
     }
+
+    // Extract fileId from fileData (handle both object and string formats)
+    const fileId = typeof fileData === 'object' ? fileData.fileId : fileData;
 
     console.log(`✅ SECURE STREAM: Authorized file stream for user ${userId}, sheet ${requestedSheet}`);
 
@@ -620,9 +629,9 @@ router.get('/sheets/direct-file-access/:participationId/:sheetNumber', authentic
     
     // Get individual file ID for this specific sheet
     const individualFiles = game.individual_sheet_files || {};
-    const fileId = individualFiles[requestedSheet.toString()];
+    const fileData = individualFiles[requestedSheet.toString()];
 
-    if (!fileId) {
+    if (!fileData) {
       console.log(`❌ DIRECT ACCESS: No individual file ID for sheet ${requestedSheet}`);
       return res.status(404).json({ 
         error: 'Sheet file not available',
@@ -630,6 +639,9 @@ router.get('/sheets/direct-file-access/:participationId/:sheetNumber', authentic
         code: 'FILE_NOT_CONFIGURED'
       });
     }
+
+    // Extract fileId from fileData (handle both object and string formats)
+    const fileId = typeof fileData === 'object' ? fileData.fileId : fileData;
 
     console.log(`✅ DIRECT ACCESS: Providing direct file access for sheet ${requestedSheet}, file ${fileId}`);
 
@@ -1177,7 +1189,10 @@ router.get('/sheets/secure-proxy/:participationId/:sheetNumber/:fileName', authe
     
     // Check if we have individual file IDs configured
     const individualFiles = game.individual_sheet_files || {};
-    const specificFileId = individualFiles[requestedSheet.toString()];
+    const fileData = individualFiles[requestedSheet.toString()];
+    
+    // Extract fileId from fileData (handle both object and string formats)
+    const specificFileId = fileData ? (typeof fileData === 'object' ? fileData.fileId : fileData) : null;
     
     let googleDriveUrl;
     
@@ -1285,7 +1300,22 @@ router.get('/sheets/secure-token/:participationId/:sheetNumber', authenticateTok
 
     const game = participation.games;
     const individualFiles = game.individual_sheet_files || {};
-    const fileInfo = individualFiles[requestedSheet.toString()];
+    const fileData = individualFiles[requestedSheet.toString()];
+    
+    // Handle both object and string formats
+    let fileInfo;
+    if (typeof fileData === 'object') {
+      fileInfo = fileData;
+    } else if (typeof fileData === 'string') {
+      // Old format: just file ID string - construct object
+      fileInfo = {
+        fileId: fileData,
+        fileName: (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', requestedSheet),
+        downloadUrl: `https://drive.google.com/uc?export=download&id=${fileData}`
+      };
+    } else {
+      fileInfo = null;
+    }
     
     if (!fileInfo || !fileInfo.downloadUrl) {
       console.log(`❌ FILE NOT CONFIGURED: No download URL for sheet ${requestedSheet}`);

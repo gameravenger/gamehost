@@ -1334,26 +1334,27 @@ router.get('/sheets/secure-token/:participationId/:sheetNumber', authenticateTok
       return res.status(404).json({ error: 'Sheet download not configured' });
     }
 
-    // Mark as downloaded BEFORE providing token
-    const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
-    const { error: updateError } = await supabaseAdmin
-      .from('game_participants')
-      .update({
-        downloaded_sheet_numbers: updatedDownloadedSheets,
-        sheets_downloaded: updatedDownloadedSheets.length === selectedSheets.length,
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', participationId);
+    // TEMPORARILY DISABLED: Mark as downloaded - causing issues
+    // TODO: Move this AFTER successful download, not before
+    // const updatedDownloadedSheets = [...downloadedSheets, requestedSheet];
+    // const { error: updateError } = await supabaseAdmin
+    //   .from('game_participants')
+    //   .update({
+    //     downloaded_sheet_numbers: updatedDownloadedSheets,
+    //     sheets_downloaded: updatedDownloadedSheets.length === selectedSheets.length,
+    //     updated_at: new Date().toISOString()
+    //   })
+    //   .eq('id', participationId);
 
-    if (updateError) {
-      console.error('❌ DATABASE UPDATE ERROR:', updateError);
-      return res.status(500).json({
-        error: 'Failed to update download status',
-        message: 'Please try again later'
-      });
-    }
+    // if (updateError) {
+    //   console.error('❌ DATABASE UPDATE ERROR:', updateError);
+    //   return res.status(500).json({
+    //     error: 'Failed to update download status',
+    //     message: 'Please try again later'
+    //   });
+    // }
 
-    console.log(`✅ SECURE TOKEN: Providing download URL for ${fileInfo.fileName} to user ${userId}`);
+    console.log(`✅ SECURE TOKEN: Providing download URL for ${fileInfo.fileName} to user ${userId} [DOWNLOAD TRACKING DISABLED FOR TESTING]`);
 
     // Return the direct Google Drive download URL
     // This is secure because:

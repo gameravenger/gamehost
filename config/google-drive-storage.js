@@ -260,6 +260,38 @@ class GoogleDriveStorage {
     }
   }
 
+  // Move file to a different folder
+  async moveFile(fileId, newParentFolderId) {
+    try {
+      if (!this.drive) {
+        throw new Error('Google Drive not initialized');
+      }
+
+      // Get current parents
+      const file = await this.drive.files.get({
+        fileId: fileId,
+        fields: 'parents, name'
+      });
+
+      const previousParents = file.data.parents ? file.data.parents.join(',') : '';
+
+      // Move to new folder
+      const result = await this.drive.files.update({
+        fileId: fileId,
+        addParents: newParentFolderId,
+        removeParents: previousParents,
+        fields: 'id, parents, name'
+      });
+
+      console.log(`📦 MOVED: ${file.data.name} to folder ${newParentFolderId}`);
+      return result.data;
+
+    } catch (error) {
+      console.error('❌ File move failed:', error);
+      throw error;
+    }
+  }
+
   // Delete file from Google Drive
   async deleteFile(fileId) {
     try {
@@ -289,7 +321,23 @@ class GoogleDriveStorage {
       
       // Extract clean folder ID from URL or ID
       const parentFolderId = parentFolderIdOrUrl ? this.extractFolderId(parentFolderIdOrUrl) : null;
+      
+      // Check if folder already exists
+      if (parentFolderId) {
+        const query = `name='${folderName.replace(/'/g, "\\'")}' and '${parentFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+        const existingFolders = await this.drive.files.list({
+          q: query,
+          fields: 'files(id, name)',
+          spaces: 'drive'
+        });
+        
+        if (existingFolders.data.files && existingFolders.data.files.length > 0) {
+          console.log(`📁 FOLDER EXISTS: ${folderName} - ID: ${existingFolders.data.files[0].id}`);
+          return existingFolders.data.files[0].id;
+        }
+      }
 
+      // Create new folder if doesn't exist
       const fileMetadata = {
         name: folderName,
         mimeType: 'application/vnd.google-apps.folder',
@@ -306,6 +354,42 @@ class GoogleDriveStorage {
 
     } catch (error) {
       console.error('❌ Folder creation failed:', error);
+      throw error;
+    }
+  }
+  
+  // Create organized folder structure for a game
+  async createGameFolderStructure(gameId, gameName, organiserId, rootFolderId) {
+    try {
+      console.log(`📂 Creating folder structure for Game ${gameId}: ${gameName}`);
+      
+      // Sanitize folder name (remove invalid characters)
+      const sanitizedGameName = gameName.replace(/[<>:"/\\|?*]/g, '-').substring(0, 50);
+      
+      // Create main game folder: "Game_123_GameName_Org456"
+      const gameFolderName = `Game_${gameId}_${sanitizedGameName}_Org${organiserId}`;
+      const gameFolderId = await this.createFolder(gameFolderName, rootFolderId);
+      
+      // Create subfolders for organization
+      const sheetsFolderId = await this.createFolder('sheets', gameFolderId);
+      const bannersFolderId = await this.createFolder('banners', gameFolderId);
+      const imagesFolderId = await this.createFolder('images', gameFolderId);
+      
+      console.log(`✅ FOLDER STRUCTURE CREATED for ${gameFolderName}`);
+      console.log(`   📊 Sheets folder: ${sheetsFolderId}`);
+      console.log(`   🎨 Banners folder: ${bannersFolderId}`);
+      console.log(`   📸 Images folder: ${imagesFolderId}`);
+      
+      return {
+        gameFolderId,
+        sheetsFolderId,
+        bannersFolderId,
+        imagesFolderId,
+        gameFolderName
+      };
+      
+    } catch (error) {
+      console.error('❌ Failed to create game folder structure:', error);
       throw error;
     }
   }

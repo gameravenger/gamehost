@@ -861,6 +861,45 @@ router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, (req, res, 
       });
     }
 
+    // CREATE/GET GAME-SPECIFIC FOLDER STRUCTURE
+    console.log(`📂 Setting up folder structure for Game ${gameId}: ${game.name}`);
+    
+    let gameFolders;
+    try {
+      gameFolders = await driveStorage.createGameFolderStructure(
+        gameId,
+        game.name,
+        organiser.id,
+        process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID
+      );
+    } catch (folderError) {
+      console.error('❌ Failed to create game folders:', folderError);
+      return res.status(500).json({
+        error: 'Failed to create folder structure',
+        message: folderError.message
+      });
+    }
+    
+    // Get the specific folder for this file type
+    const targetFolderId = fileType === 'sheets' ? gameFolders.sheetsFolderId :
+                           fileType === 'banners' ? gameFolders.bannersFolderId :
+                           gameFolders.imagesFolderId;
+    
+    console.log(`📁 Uploading ${fileType} to folder: ${targetFolderId} in ${gameFolders.gameFolderName}`);
+
+    // MOVE FILES TO GAME-SPECIFIC FOLDER
+    console.log(`📦 Moving ${uploadedFiles.length} files to game folder: ${gameFolders.gameFolderName}/${fileType}`);
+    
+    for (const file of uploadedFiles) {
+      try {
+        await driveStorage.moveFile(file.fileId, targetFolderId);
+        console.log(`✅ Moved ${file.fileName} to ${fileType} folder`);
+      } catch (moveError) {
+        console.error(`❌ Failed to move ${file.fileName}:`, moveError);
+        // Continue with other files even if one fails
+      }
+    }
+
     // Process uploaded files
     const processedFiles = {};
     const uploadedItems = [];
@@ -879,7 +918,10 @@ router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, (req, res, 
         webViewLink: file.webViewLink,
         uploadedAt: file.createdTime || new Date().toISOString(),
         compression: file.compression,
-        autoDeleteDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString() // 2 days from now
+        autoDeleteDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
+        folderPath: `${gameFolders.gameFolderName}/${fileType}`, // For reference
+        gameFolderId: gameFolders.gameFolderId,
+        targetFolderId: targetFolderId
       };
       
       uploadedItems.push(itemNumber);
@@ -889,7 +931,7 @@ router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, (req, res, 
         totalCompressedSize += file.compression.compressedSize;
       }
       
-      console.log(`✅ DRIVE UPLOAD: ${fileType} ${itemNumber} -> ${file.fileId} (${file.size} bytes)`);
+      console.log(`✅ DRIVE UPLOAD: ${fileType} ${itemNumber} -> ${file.fileId} in ${gameFolders.gameFolderName}/${fileType}`);
     });
 
     // Update game with uploaded file information
@@ -898,6 +940,8 @@ router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, (req, res, 
       [`${fileType}_count`]: uploadedItems.length,
       [`${fileType}_uploaded`]: true,
       upload_method: 'google_drive_storage',
+      drive_folder_id: gameFolders.gameFolderId,
+      drive_folder_name: gameFolders.gameFolderName,
       updated_at: new Date().toISOString()
     };
 

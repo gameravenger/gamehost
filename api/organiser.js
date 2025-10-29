@@ -12,11 +12,27 @@ const driveStorage = new GoogleDriveStorage();
 
 // Configure multer for Google Drive uploads with compression
 const createGoogleDriveUpload = () => {
+  // CRITICAL: Validate folder ID before creating multer instance
+  const folderId = process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID;
+  
+  if (!folderId || folderId.trim() === '') {
+    console.error('❌ CRITICAL ERROR: GOOGLE_DRIVE_STORAGE_FOLDER_ID is not set!');
+    console.error('   Current value:', folderId);
+    console.error('   This environment variable MUST be set in Vercel.');
+    console.error('   See QUICK_FIX_CHECKLIST.md for setup instructions.');
+    throw new Error(
+      'GOOGLE_DRIVE_STORAGE_FOLDER_ID environment variable is required. ' +
+      'Please set it in Vercel Dashboard → Settings → Environment Variables'
+    );
+  }
+  
+  console.log(`✅ Creating Google Drive uploader with folder: ${folderId}`);
+  
   return multer({
     storage: new MulterGoogleDriveStorage({
       tempDir: process.env.TEMP_DIR || '/tmp',
       compressionQuality: parseInt(process.env.COMPRESSION_QUALITY) || 75,
-      parentFolderId: process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID
+      parentFolderId: folderId
       }),
     limits: {
       fileSize: 50 * 1024 * 1024, // 50MB limit per file (will be compressed)
@@ -730,13 +746,28 @@ router.post('/scan-folder-preview', authenticateOrganiser, async (req, res) => {
 router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, (req, res, next) => {
   // Check if Google Drive is configured
   if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY || !process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID) {
+    console.error('❌ Upload rejected: Missing environment variables');
+    console.error('   GOOGLE_SERVICE_ACCOUNT_KEY:', process.env.GOOGLE_SERVICE_ACCOUNT_KEY ? 'SET' : 'NOT SET');
+    console.error('   GOOGLE_DRIVE_STORAGE_FOLDER_ID:', process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID || 'NOT SET');
+    
     return res.status(500).json({
       error: 'Google Drive storage not configured',
-      message: 'Please configure Google Drive storage first. See GOOGLE_DRIVE_STORAGE_SETUP.md'
+      message: 'Please configure GOOGLE_DRIVE_STORAGE_FOLDER_ID in Vercel environment variables. See QUICK_FIX_CHECKLIST.md'
     });
   }
   
-  const googleDriveUpload = createGoogleDriveUpload();
+  console.log(`📤 Creating upload handler for folder: ${process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID}`);
+  
+  let googleDriveUpload;
+  try {
+    googleDriveUpload = createGoogleDriveUpload();
+  } catch (error) {
+    console.error('❌ Failed to create Google Drive uploader:', error.message);
+    return res.status(500).json({
+      error: 'Failed to initialize Google Drive uploader',
+      message: error.message
+    });
+  }
   googleDriveUpload.array('files', 100)(req, res, (err) => {
     if (err) {
       console.error('❌ MULTER ERROR:', err);

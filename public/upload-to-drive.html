@@ -337,21 +337,30 @@
             async loadGameInfo() {
                 try {
                     if (!this.gameId) {
-                        document.getElementById('gameInfo').innerHTML = '❌ No game ID provided';
+                        const gameInfoEl = document.getElementById('gameInfo');
+                        if (gameInfoEl) {
+                            gameInfoEl.textContent = '❌ No game ID provided';
+                        }
                         return;
                     }
 
+                    // Sanitize gameId (should be numeric or alphanumeric UUID)
+                    const sanitizedGameId = String(this.gameId).replace(/[^a-zA-Z0-9-]/g, '');
+                    
                     // Simple game info display without API call for now
-                    document.getElementById('gameInfo').innerHTML = `
-                        <strong>Game ID:</strong> ${this.gameId} | 
-                        <strong>Upload Type:</strong> ${this.selectedFileType}
-                    `;
+                    const gameInfoEl = document.getElementById('gameInfo');
+                    if (gameInfoEl) {
+                        gameInfoEl.innerHTML = `
+                            <strong>Game ID:</strong> ${sanitizedGameId} | 
+                            <strong>Upload Type:</strong> ${this.selectedFileType}
+                        `;
+                    }
                 } catch (error) {
                     console.error('Failed to load game info:', error);
-                    document.getElementById('gameInfo').innerHTML = `
-                        <strong>Game ID:</strong> ${this.gameId} | 
-                        <strong>Upload Type:</strong> ${this.selectedFileType}
-                    `;
+                    const gameInfoEl = document.getElementById('gameInfo');
+                    if (gameInfoEl) {
+                        gameInfoEl.textContent = 'Failed to load game information';
+                    }
                 }
             }
 
@@ -381,6 +390,18 @@
             validateFile(file) {
                 const maxSize = 50 * 1024 * 1024; // 50MB
                 
+                // Check file exists
+                if (!file || !file.name) {
+                    app.showNotification('Invalid file', 'error');
+                    return false;
+                }
+                
+                // Check file size
+                if (file.size <= 0) {
+                    app.showNotification(`File "${file.name}" is empty`, 'error');
+                    return false;
+                }
+                
                 if (file.size > maxSize) {
                     app.showNotification(`File "${file.name}" is too large. Max size: 50MB`, 'error');
                     return false;
@@ -392,8 +413,14 @@
                     images: ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif']
                 };
 
+                // Validate file type exists for selected category
+                if (!allowedTypes[this.selectedFileType]) {
+                    app.showNotification(`Invalid file type selection`, 'error');
+                    return false;
+                }
+
                 if (!allowedTypes[this.selectedFileType].includes(file.type)) {
-                    app.showNotification(`File type "${file.type}" not allowed for ${this.selectedFileType}`, 'error');
+                    app.showNotification(`File type "${file.type}" not allowed for ${this.selectedFileType}. Allowed types: ${allowedTypes[this.selectedFileType].join(', ')}`, 'error');
                     return false;
                 }
 
@@ -531,12 +558,26 @@
                     app.showNotification('Game ID is missing. Please go back and try again.', 'error');
                     return;
                 }
+                
+                // Validate file type is selected
+                if (!this.selectedFileType || !['sheets', 'banners', 'images'].includes(this.selectedFileType)) {
+                    app.showNotification('Please select a valid file type', 'error');
+                    return;
+                }
 
                 const token = localStorage.getItem('token');
                 if (!token) {
                     app.showNotification('Please login to upload files', 'error');
                     window.location.href = '/login.html';
                     return;
+                }
+                
+                // Validate all files again before upload
+                for (const file of this.selectedFiles) {
+                    if (!this.validateFile(file)) {
+                        app.showNotification('Some files are invalid. Please remove them and try again.', 'error');
+                        return;
+                    }
                 }
 
                 try {

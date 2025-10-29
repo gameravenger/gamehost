@@ -474,12 +474,71 @@ class OrganiserManager {
     try {
       const formData = new FormData(document.getElementById('createGameForm'));
       
+      // Validate required fields
+      const gameName = formData.get('gameName');
+      const totalPrize = formData.get('totalPrize');
+      const pricePerSheet1 = formData.get('pricePerSheet1');
+      const pricePerSheet2 = formData.get('pricePerSheet2');
+      const pricePerSheet3Plus = formData.get('pricePerSheet3Plus');
+      const gameDate = formData.get('gameDate');
+      const gameTime = formData.get('gameTime');
+      
+      // Validate inputs
+      if (!gameName || !gameName.trim()) {
+        app.showNotification('Game name is required', 'error');
+        return;
+      }
+      
+      // Validate numeric inputs
+      const totalPrizeNum = parseFloat(totalPrize);
+      const priceSheet1Num = parseFloat(pricePerSheet1);
+      const priceSheet2Num = parseFloat(pricePerSheet2);
+      const priceSheet3Num = parseFloat(pricePerSheet3Plus);
+      
+      if (isNaN(totalPrizeNum) || totalPrizeNum <= 0) {
+        app.showNotification('Please enter a valid total prize amount', 'error');
+        return;
+      }
+      
+      if (isNaN(priceSheet1Num) || priceSheet1Num <= 0) {
+        app.showNotification('Please enter a valid price for 1 sheet', 'error');
+        return;
+      }
+      
+      if (isNaN(priceSheet2Num) || priceSheet2Num <= 0) {
+        app.showNotification('Please enter a valid price for 2 sheets', 'error');
+        return;
+      }
+      
+      if (isNaN(priceSheet3Num) || priceSheet3Num <= 0) {
+        app.showNotification('Please enter a valid price for 3+ sheets', 'error');
+        return;
+      }
+      
+      // Validate date and time
+      if (!gameDate) {
+        app.showNotification('Game date is required', 'error');
+        return;
+      }
+      
+      if (!gameTime) {
+        app.showNotification('Game time is required', 'error');
+        return;
+      }
+      
+      // Validate date is not in the past
+      const selectedDate = new Date(`${gameDate}T${gameTime}`);
+      const now = new Date();
+      if (selectedDate < now) {
+        app.showNotification('Game date and time cannot be in the past', 'error');
+        return;
+      }
+      
       // Extract Google Drive folder ID from URL
       const sheetsFolder = formData.get('sheetsFolder');
       let sheetsFolderId = null;
       
-      if (sheetsFolder) {
-        // This will be handled on the server side
+      if (sheetsFolder && sheetsFolder !== 'upload_after_creation') {
         sheetsFolderId = sheetsFolder;
       }
 
@@ -501,21 +560,21 @@ class OrganiserManager {
       }
 
       const data = {
-        name: formData.get('gameName'),
+        name: gameName.trim(),
         bannerImageUrl: formData.get('bannerImageUrl') === 'upload_after_creation' ? null : formData.get('bannerImageUrl'),
-        totalPrize: parseFloat(formData.get('totalPrize')),
-        pricePerSheet1: parseFloat(formData.get('pricePerSheet1')),
-        pricePerSheet2: parseFloat(formData.get('pricePerSheet2')),
-        pricePerSheet3Plus: parseFloat(formData.get('pricePerSheet3Plus')),
+        totalPrize: totalPrizeNum,
+        pricePerSheet1: priceSheet1Num,
+        pricePerSheet2: priceSheet2Num,
+        pricePerSheet3Plus: priceSheet3Num,
         paymentQrCodeUrl: formData.get('paymentQrCodeUrl') === 'upload_after_creation' ? null : formData.get('paymentQrCodeUrl'),
-        zoomLink: formData.get('zoomLink'),
-        zoomPassword: formData.get('zoomPassword'),
-        gameDate: formData.get('gameDate'),
-        gameTime: formData.get('gameTime'),
-        sheetsFolder: formData.get('sheetsFolder') === 'upload_after_creation' ? null : sheetsFolderId,
+        zoomLink: formData.get('zoomLink') || null,
+        zoomPassword: formData.get('zoomPassword') || null,
+        gameDate: gameDate,
+        gameTime: gameTime,
+        sheetsFolder: sheetsFolderId,
         totalSheets: parseInt(formData.get('totalSheets')) || 0,
         sheetFileFormat: formData.get('sheetFileFormat') || 'Sheet_{number}.pdf',
-        customFormat: formData.get('customFormat'),
+        customFormat: formData.get('customFormat') || null,
         individualSheetFiles: individualSheetFiles, // Auto-scanned individual file IDs
         autoScanned: Object.keys(individualSheetFiles).length > 0,
         uploadMethod: 'new_drag_drop_system' // Flag to indicate new upload system
@@ -1137,18 +1196,68 @@ class OrganiserManager {
       const formData = new FormData(document.getElementById('editGameForm'));
       const gameId = formData.get('editGameId') || document.getElementById('editGameId').value;
       
+      // Validate required fields
+      const gameName = formData.get('gameName');
+      const totalPrize = formData.get('totalPrize');
+      const pricePerSheet1 = formData.get('pricePerSheet1');
+      const pricePerSheet2 = formData.get('pricePerSheet2');
+      const pricePerSheet3Plus = formData.get('pricePerSheet3Plus');
+      const gameDate = formData.get('gameDate');
+      const gameTime = formData.get('gameTime');
+      
+      if (!gameName || !gameName.trim()) {
+        app.showNotification('Game name is required', 'error');
+        return;
+      }
+      
+      // Validate numeric inputs
+      const totalPrizeNum = parseFloat(totalPrize);
+      const priceSheet1Num = parseFloat(pricePerSheet1);
+      const priceSheet2Num = parseFloat(pricePerSheet2);
+      const priceSheet3Num = parseFloat(pricePerSheet3Plus);
+      
+      if (isNaN(totalPrizeNum) || totalPrizeNum <= 0) {
+        app.showNotification('Please enter a valid total prize amount', 'error');
+        return;
+      }
+      
+      if (isNaN(priceSheet1Num) || priceSheet1Num <= 0) {
+        app.showNotification('Please enter a valid price for 1 sheet', 'error');
+        return;
+      }
+      
+      if (isNaN(priceSheet2Num) || priceSheet2Num <= 0) {
+        app.showNotification('Please enter a valid price for 2 sheets', 'error');
+        return;
+      }
+      
+      if (isNaN(priceSheet3Num) || priceSheet3Num <= 0) {
+        app.showNotification('Please enter a valid price for 3+ sheets', 'error');
+        return;
+      }
+      
+      if (!gameDate) {
+        app.showNotification('Game date is required', 'error');
+        return;
+      }
+      
+      if (!gameTime) {
+        app.showNotification('Game time is required', 'error');
+        return;
+      }
+      
       const data = {
-        name: formData.get('gameName'),
-        banner_image_url: formData.get('bannerImageUrl'),
-        total_prize: parseFloat(formData.get('totalPrize')),
-        price_per_sheet_1: parseFloat(formData.get('pricePerSheet1')),
-        price_per_sheet_2: parseFloat(formData.get('pricePerSheet2')),
-        price_per_sheet_3_plus: parseFloat(formData.get('pricePerSheet3Plus')),
-        payment_qr_code_url: formData.get('paymentQrCodeUrl'),
-        zoom_link: formData.get('zoomLink'),
-        zoom_password: formData.get('zoomPassword'),
-        game_date: formData.get('gameDate'),
-        game_time: formData.get('gameTime')
+        name: gameName.trim(),
+        banner_image_url: formData.get('bannerImageUrl') || null,
+        total_prize: totalPrizeNum,
+        price_per_sheet_1: priceSheet1Num,
+        price_per_sheet_2: priceSheet2Num,
+        price_per_sheet_3_plus: priceSheet3Num,
+        payment_qr_code_url: formData.get('paymentQrCodeUrl') || null,
+        zoom_link: formData.get('zoomLink') || null,
+        zoom_password: formData.get('zoomPassword') || null,
+        game_date: gameDate,
+        game_time: gameTime
       };
 
       const response = await app.apiCall(`/organiser/games/${gameId}`, 'PUT', data);

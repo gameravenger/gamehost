@@ -149,6 +149,35 @@ router.post('/games', authenticateOrganiser, async (req, res) => {
       individualSheetFiles,
       autoScanned
     } = req.body;
+    
+    // Validate required fields
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Game name is required' });
+    }
+    
+    if (!totalPrize || isNaN(totalPrize) || totalPrize <= 0) {
+      return res.status(400).json({ error: 'Valid total prize is required' });
+    }
+    
+    if (!pricePerSheet1 || isNaN(pricePerSheet1) || pricePerSheet1 <= 0) {
+      return res.status(400).json({ error: 'Valid price for 1 sheet is required' });
+    }
+    
+    if (!pricePerSheet2 || isNaN(pricePerSheet2) || pricePerSheet2 <= 0) {
+      return res.status(400).json({ error: 'Valid price for 2 sheets is required' });
+    }
+    
+    if (!pricePerSheet3Plus || isNaN(pricePerSheet3Plus) || pricePerSheet3Plus <= 0) {
+      return res.status(400).json({ error: 'Valid price for 3+ sheets is required' });
+    }
+    
+    if (!gameDate) {
+      return res.status(400).json({ error: 'Game date is required' });
+    }
+    
+    if (!gameTime) {
+      return res.status(400).json({ error: 'Game time is required' });
+    }
 
     // Extract and validate Google Drive folder ID
     const googleDrive = require('../config/google-drive');

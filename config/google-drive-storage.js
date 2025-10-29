@@ -162,13 +162,13 @@ class GoogleDriveStorage {
 
   // Upload file to Google Drive
   async uploadFile(filePath, fileName, parentFolderIdOrUrl = null, mimeType = null) {
+    // Extract folder ID BEFORE try block so it's available in catch block
+    const parentFolderId = parentFolderIdOrUrl ? this.extractFolderId(parentFolderIdOrUrl) : null;
+    
     try {
       if (!this.drive) {
         throw new Error('Google Drive not initialized');
       }
-      
-      // Extract clean folder ID from URL or ID
-      const parentFolderId = parentFolderIdOrUrl ? this.extractFolderId(parentFolderIdOrUrl) : null;
       
       console.log('🔍 UPLOAD DEBUG:', {
         inputFolderId: parentFolderIdOrUrl,
@@ -228,6 +228,8 @@ class GoogleDriveStorage {
 
     } catch (error) {
       console.error('❌ Google Drive upload failed:', error.message);
+      console.error('❌ Error code:', error.code);
+      console.error('❌ Folder ID that was used:', parentFolderId);
       
       // Enhanced error messages for common issues
       if (error.message && error.message.includes('storage quota')) {
@@ -243,16 +245,31 @@ class GoogleDriveStorage {
         console.error('');
       } else if (error.code === 404) {
         console.error('');
-        console.error('💡 SOLUTION: Folder not found or not shared!');
-        console.error(`   - Folder ID used: ${parentFolderId || 'NONE!'}`);
-        console.error('   - Check GOOGLE_DRIVE_STORAGE_FOLDER_ID is correct');
-        console.error('   - Ensure folder is shared with service account email');
+        console.error('🚨 FOLDER NOT FOUND (404 Error)');
+        console.error(`   Folder ID: ${parentFolderId}`);
+        console.error('');
+        console.error('💡 POSSIBLE CAUSES:');
+        console.error('   1. Folder does not exist in Google Drive');
+        console.error('   2. Folder is not shared with the service account');
+        console.error('   3. Folder ID is incorrect');
+        console.error('   4. Folder is in "My Drive" instead of Shared Drive');
+        console.error('');
+        console.error('💡 SOLUTION:');
+        console.error('   1. Go to Google Drive and verify the folder exists');
+        console.error('   2. Copy the folder ID from the URL');
+        console.error('   3. Share the folder with your service account email (Editor permission)');
+        console.error('   4. Update GOOGLE_DRIVE_STORAGE_FOLDER_ID with correct ID');
+        console.error('   5. Redeploy in Vercel');
         console.error('');
       } else if (error.code === 403) {
         console.error('');
-        console.error('💡 SOLUTION: Permission denied!');
+        console.error('🚨 PERMISSION DENIED (403 Error)');
+        console.error(`   Folder ID: ${parentFolderId}`);
+        console.error('');
+        console.error('💡 SOLUTION:');
         console.error('   - Service account needs "Editor" permission (not "Viewer")');
-        console.error('   - Check folder sharing settings in Google Drive');
+        console.error('   - Share the folder directly with the service account email');
+        console.error('   - "Anyone with the link" does NOT work for service accounts!');
         console.error('');
       }
       

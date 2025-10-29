@@ -10,6 +10,32 @@ class GoogleDriveStorage {
     this.auth = null;
     this.initializeAuth();
   }
+  
+  // Extract folder ID from URL or return ID if already clean
+  extractFolderId(folderInput) {
+    if (!folderInput) return null;
+    
+    // If it's already a clean ID (no slashes or special chars), return it
+    if (/^[a-zA-Z0-9_-]+$/.test(folderInput)) {
+      return folderInput;
+    }
+    
+    // Extract from URL patterns
+    const patterns = [
+      /\/folders\/([a-zA-Z0-9_-]+)/,  // Standard folder URL
+      /id=([a-zA-Z0-9_-]+)/,          // Alternative format
+      /^([a-zA-Z0-9_-]+)$/            // Direct folder ID
+    ];
+    
+    for (const pattern of patterns) {
+      const match = folderInput.match(pattern);
+      if (match) {
+        return match[1];
+      }
+    }
+    
+    return null;
+  }
 
   async initializeAuth() {
     try {
@@ -135,10 +161,17 @@ class GoogleDriveStorage {
   }
 
   // Upload file to Google Drive
-  async uploadFile(filePath, fileName, parentFolderId = null, mimeType = null) {
+  async uploadFile(filePath, fileName, parentFolderIdOrUrl = null, mimeType = null) {
     try {
       if (!this.drive) {
         throw new Error('Google Drive not initialized');
+      }
+      
+      // Extract clean folder ID from URL or ID
+      const parentFolderId = parentFolderIdOrUrl ? this.extractFolderId(parentFolderIdOrUrl) : null;
+      
+      if (parentFolderIdOrUrl && !parentFolderId) {
+        throw new Error(`Invalid Google Drive folder ID or URL: ${parentFolderIdOrUrl}`);
       }
 
       const fileMetadata = {
@@ -207,11 +240,14 @@ class GoogleDriveStorage {
   }
 
   // Create folder in Google Drive
-  async createFolder(folderName, parentFolderId = null) {
+  async createFolder(folderName, parentFolderIdOrUrl = null) {
     try {
       if (!this.drive) {
         throw new Error('Google Drive not initialized');
       }
+      
+      // Extract clean folder ID from URL or ID
+      const parentFolderId = parentFolderIdOrUrl ? this.extractFolderId(parentFolderIdOrUrl) : null;
 
       const fileMetadata = {
         name: folderName,
@@ -234,11 +270,14 @@ class GoogleDriveStorage {
   }
 
   // Get files older than specified days
-  async getOldFiles(daysOld = 2, folderId = null) {
+  async getOldFiles(daysOld = 2, folderIdOrUrl = null) {
     try {
       if (!this.drive) {
         throw new Error('Google Drive not initialized');
       }
+      
+      // Extract clean folder ID from URL or ID
+      const folderId = folderIdOrUrl ? this.extractFolderId(folderIdOrUrl) : null;
 
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - daysOld);

@@ -9,7 +9,7 @@ class GamePlatform {
   }
 
   // Helper method to get valid image URL
-  getValidImageUrl(imageUrl) {
+  getValidImageUrl(imageUrl, size = 'w1000') {
     if (!imageUrl) return '/images/default-game.svg';
     
     // If it's a local path, try SVG version first
@@ -31,23 +31,34 @@ class GamePlatform {
         return '/images/default-game.svg';
       }
       
-      // Fix Google Drive URLs
-      if (imageUrl.includes('drive.google.com/file/')) {
-        const fileId = imageUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
-        if (fileId) {
-          return `https://drive.google.com/uc?export=view&id=${fileId[1]}`;
-        }
-        console.warn('Invalid Google Drive URL:', imageUrl);
-        return '/images/default-game.svg';
+      // Handle Google Drive file IDs directly (NEW - from our upload system)
+      if (imageUrl.match(/^[a-zA-Z0-9_-]{20,}$/)) {
+        // This is a raw file ID from our new upload system
+        return `https://drive.google.com/thumbnail?id=${imageUrl}&sz=${size}`;
       }
       
-      // Fix Google Drive sharing URLs (view?usp=sharing)
-      if (imageUrl.includes('drive.google.com') && imageUrl.includes('view?usp=sharing')) {
-        const fileId = imageUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      // Fix Google Drive URLs - Use thumbnail format for better reliability
+      if (imageUrl.includes('drive.google.com')) {
+        // Extract file ID from various Google Drive URL formats
+        let fileId = null;
+        
+        // Format 1: /file/d/{fileId}/
+        const match1 = imageUrl.match(/\/file\/d\/([a-zA-Z0-9-_]+)/);
+        if (match1) fileId = match1[1];
+        
+        // Format 2: /d/{fileId}/
+        const match2 = imageUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+        if (match2 && !fileId) fileId = match2[1];
+        
+        // Format 3: ?id={fileId} or &id={fileId}
+        const match3 = imageUrl.match(/[?&]id=([a-zA-Z0-9-_]+)/);
+        if (match3 && !fileId) fileId = match3[1];
+        
         if (fileId) {
-          return `https://drive.google.com/uc?export=view&id=${fileId[1]}`;
+          // Use thumbnail format for best compatibility with Shared Drives
+          return `https://drive.google.com/thumbnail?id=${fileId}&sz=${size}`;
         }
-        console.warn('Invalid Google Drive sharing URL:', imageUrl);
+        console.warn('Could not extract file ID from Google Drive URL:', imageUrl);
         return '/images/default-game.svg';
       }
       

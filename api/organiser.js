@@ -937,6 +937,11 @@ router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, (req, res, 
         size: file.size,
         downloadUrl: file.downloadUrl,
         webViewLink: file.webViewLink,
+        // NEW: Additional URL formats for better compatibility
+        thumbnailLink: file.thumbnailLink, // Best for displaying images
+        embedLink: file.embedLink, // Best for PDFs
+        directLink: file.directLink,
+        viewLink: file.viewLink,
         uploadedAt: file.createdTime || new Date().toISOString(),
         compression: file.compression,
         autoDeleteDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(), // 2 days from now
@@ -975,6 +980,18 @@ router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, (req, res, 
       if (fileType === 'sheets') {
         updateData.individual_sheet_files = processedFiles;
         updateData.total_sheets = uploadedItems.length;
+      }
+      
+      // For banners, update the main banner_image_url with thumbnail format (first banner)
+      if (fileType === 'banners' && processedFiles[1] && processedFiles[1].thumbnailLink) {
+        updateData.banner_image_url = processedFiles[1].thumbnailLink;
+        console.log(`✅ Updated banner_image_url with thumbnail: ${updateData.banner_image_url}`);
+      }
+      
+      // For QR codes/images, update payment_qr_code_url with thumbnail format (first file)
+      if ((fileType === 'images' || fileType === 'qr') && processedFiles[1] && processedFiles[1].thumbnailLink) {
+        updateData.payment_qr_code_url = processedFiles[1].thumbnailLink;
+        console.log(`✅ Updated payment_qr_code_url with thumbnail: ${updateData.payment_qr_code_url}`);
       }
     } catch (e) {
       console.log('⚠️ Some optional fields not available, continuing...');

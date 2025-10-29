@@ -10,6 +10,16 @@ const router = express.Router();
 // Initialize Google Drive Storage
 const driveStorage = new GoogleDriveStorage();
 
+// LOG ENVIRONMENT VARIABLES ON STARTUP
+console.log('\n' + '='.repeat(70));
+console.log('🔍 GOOGLE DRIVE CONFIGURATION CHECK');
+console.log('='.repeat(70));
+console.log('GOOGLE_SERVICE_ACCOUNT_KEY:', process.env.GOOGLE_SERVICE_ACCOUNT_KEY ? 
+  `SET (${process.env.GOOGLE_SERVICE_ACCOUNT_KEY.substring(0, 50)}...)` : 
+  '❌ NOT SET');
+console.log('GOOGLE_DRIVE_STORAGE_FOLDER_ID:', process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID || '❌ NOT SET');
+console.log('='.repeat(70) + '\n');
+
 // Configure multer for Google Drive uploads with compression
 const createGoogleDriveUpload = () => {
   // CRITICAL: Validate folder ID before creating multer instance
@@ -1460,6 +1470,40 @@ router.post('/games/:id/start', authenticateOrganiser, async (req, res) => {
     console.error('Error starting game:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
+});
+
+// DEBUG ENDPOINT - Check environment variables (remove in production!)
+router.get('/debug/env-check', authenticateOrganiser, (req, res) => {
+  // Only show to admins/organisers for security
+  const envCheck = {
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    checks: {
+      GOOGLE_SERVICE_ACCOUNT_KEY: {
+        isSet: !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
+        type: process.env.GOOGLE_SERVICE_ACCOUNT_KEY ? 
+          (process.env.GOOGLE_SERVICE_ACCOUNT_KEY.trim().startsWith('{') ? 'JSON' : 'FILE_PATH') : 
+          'NOT_SET',
+        preview: process.env.GOOGLE_SERVICE_ACCOUNT_KEY ? 
+          process.env.GOOGLE_SERVICE_ACCOUNT_KEY.substring(0, 50) + '...' : 
+          null
+      },
+      GOOGLE_DRIVE_STORAGE_FOLDER_ID: {
+        isSet: !!process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID,
+        value: process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID || null,
+        length: process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID ? 
+          process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID.length : 0
+      }
+    }
+  };
+
+  console.log('🔍 ENV CHECK REQUEST:', envCheck);
+  
+  res.json({
+    success: true,
+    message: 'Environment variable check',
+    ...envCheck
+  });
 });
 
 module.exports = router;

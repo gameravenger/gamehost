@@ -272,7 +272,6 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
     }
 
     const game = participation.games;
-    const fileName = (game.sheet_file_format || 'Sheet_{number}.pdf').replace('{number}', sheetNumber);
     const folderId = game.sheets_folder_id;
     
     if (!folderId) {
@@ -281,12 +280,6 @@ router.get('/sheets/secure-download/:participationId/:sheetNumber', authenticate
 
     console.log(`✅ SECURITY: Authorized download for user ${userId}, sheet ${requestedSheet}`);
 
-    // Create direct download URL for the specific file
-    const directDownloadUrl = `https://drive.google.com/uc?export=download&id=${folderId}/${fileName}`;
-    
-    // Alternative: Create a more specific file URL if we know the file ID
-    // For now, we'll use a proxy approach to ensure security
-    
     // Check if game has individual file IDs configured
     const individualFiles = game.individual_sheet_files || {};
     const fileData = individualFiles[requestedSheet.toString()];

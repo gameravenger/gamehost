@@ -177,10 +177,12 @@ class OrganiserManager {
     // Show test button when folder URL is entered
     document.getElementById('sheetsFolder')?.addEventListener('input', (e) => {
       const testBtn = document.getElementById('testScanBtn');
-      if (e.target.value.trim()) {
-        testBtn.style.display = 'inline-block';
-      } else {
-        testBtn.style.display = 'none';
+      if (testBtn) {
+        if (e.target.value.trim()) {
+          testBtn.style.display = 'inline-block';
+        } else {
+          testBtn.style.display = 'none';
+        }
       }
     });
 
@@ -195,10 +197,12 @@ class OrganiserManager {
     // Sheet format change handler
     document.getElementById('sheetFileFormat')?.addEventListener('change', (e) => {
       const customGroup = document.getElementById('customFormatGroup');
-      if (e.target.value === 'custom') {
-        customGroup.style.display = 'block';
-      } else {
-        customGroup.style.display = 'none';
+      if (customGroup) {
+        if (e.target.value === 'custom') {
+          customGroup.style.display = 'block';
+        } else {
+          customGroup.style.display = 'none';
+        }
       }
       this.updateSheetsPreview();
     });
@@ -522,9 +526,17 @@ class OrganiserManager {
       
       // Reset form and switch to active games
       document.getElementById('createGameForm').reset();
-      document.getElementById('sheetsPreview').style.display = 'none';
-      document.getElementById('folderValidation').style.display = 'none';
-      document.getElementById('autoScanSection').style.display = 'none';
+      
+      // Safely hide elements that might exist
+      const sheetsPreview = document.getElementById('sheetsPreview');
+      if (sheetsPreview) sheetsPreview.style.display = 'none';
+      
+      const folderValidation = document.getElementById('folderValidation');
+      if (folderValidation) folderValidation.style.display = 'none';
+      
+      const autoScanSection = document.getElementById('autoScanSection');
+      if (autoScanSection) autoScanSection.style.display = 'none';
+      
       this.switchSection('active-games');
       
     } catch (error) {
@@ -1379,13 +1391,24 @@ class OrganiserManager {
   // AUTO-SCAN Google Drive folder for individual sheets
   async validateGoogleDriveFolder(folderUrl) {
     const validation = document.getElementById('folderValidation');
-    const statusSpan = validation.querySelector('.validation-status');
     const autoScanSection = document.getElementById('autoScanSection');
     const scanStatus = document.getElementById('scanStatus');
     
     if (!folderUrl) {
-      validation.style.display = 'none';
-      autoScanSection.style.display = 'none';
+      if (validation) validation.style.display = 'none';
+      if (autoScanSection) autoScanSection.style.display = 'none';
+      return;
+    }
+
+    // Check if validation element exists
+    if (!validation) {
+      console.warn('folderValidation element not found in DOM');
+      return;
+    }
+
+    const statusSpan = validation.querySelector('.validation-status');
+    if (!statusSpan) {
+      console.warn('validation-status element not found in DOM');
       return;
     }
 
@@ -1404,22 +1427,34 @@ class OrganiserManager {
       statusSpan.textContent = '✅ Folder is accessible - Starting auto-scan...';
       
       // Show auto-scan section and start scanning
-      autoScanSection.style.display = 'block';
-      this.startAutoScan(folderUrl);
+      if (autoScanSection) {
+        autoScanSection.style.display = 'block';
+        this.startAutoScan(folderUrl);
+      }
       
     } catch (error) {
       validation.className = 'folder-validation error';
       statusSpan.textContent = `❌ ${error.message}`;
-      autoScanSection.style.display = 'none';
+      if (autoScanSection) autoScanSection.style.display = 'none';
     }
   }
 
   // AUTO-SCAN the Google Drive folder for individual sheet files
   async startAutoScan(folderUrl) {
     const scanStatus = document.getElementById('scanStatus');
+    if (!scanStatus) {
+      console.warn('scanStatus element not found in DOM');
+      return;
+    }
+
     const loadingDiv = scanStatus.querySelector('.scan-loading');
     const successDiv = scanStatus.querySelector('.scan-success');
     const errorDiv = scanStatus.querySelector('.scan-error');
+    
+    if (!loadingDiv || !successDiv || !errorDiv) {
+      console.warn('Scan status child elements not found in DOM');
+      return;
+    }
     
     // Show loading state
     loadingDiv.style.display = 'flex';
@@ -1540,6 +1575,11 @@ class OrganiserManager {
     const samples = document.getElementById('previewSamples');
     const summary = document.getElementById('scanSummary');
     
+    if (!preview || !samples || !summary) {
+      console.warn('Sheet preview elements not found in DOM');
+      return;
+    }
+    
     preview.style.display = 'block';
     
     // Show ALL detected sheets (not just first 10)
@@ -1595,6 +1635,10 @@ class OrganiserManager {
     const customFormat = document.getElementById('customFormat')?.value;
     const preview = document.getElementById('sheetsPreview');
     const samples = document.getElementById('previewSamples');
+
+    if (!preview || !samples) {
+      return; // Elements don't exist, skip preview update
+    }
 
     if (totalSheets === 0) {
       preview.style.display = 'none';

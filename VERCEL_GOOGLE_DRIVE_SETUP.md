@@ -65,16 +65,37 @@ Extract the ID: `1PIgEhMR2-rVHbbfpELSYDakzYlEkWBXM` (everything between `/folder
    - **Environments**: Check all (Production, Preview, Development)
    - Click **Save**
 
-### Step 4: Verify Folder Permissions
+### Step 4: Share Folder with Service Account (CRITICAL!)
 
-Make sure your Google Drive folder has the correct permissions:
+**⚠️ IMPORTANT:** Service accounts cannot upload to "My Drive" - you MUST share the folder directly with the service account email!
 
-1. Go to Google Drive and find your folder
-2. Right-click → Share
-3. Change to **"Anyone with the link"** can **"Edit"** (the service account needs write access)
-4. Click **Done**
+#### Find Your Service Account Email
 
-**Important:** The service account needs **Editor** access to upload files!
+Open your `gameblast-8c2da49f7b6b.json` file and find the `client_email` field:
+
+```json
+{
+  "client_email": "your-service-account@your-project.iam.gserviceaccount.com"
+}
+```
+
+Copy this email address (e.g., `gameblast@gameblast-442012.iam.gserviceaccount.com`)
+
+#### Share the Folder
+
+1. Go to Google Drive and find your upload folder
+2. Right-click on the folder → **Share**
+3. In the "Add people and groups" field, paste the **service account email**
+4. Change permission from "Viewer" to **"Editor"**
+5. **UNCHECK** "Notify people" (it's a service account, not a real person)
+6. Click **Share**
+
+**✅ Success Check:** You should see the service account email listed with "Editor" access in the folder's sharing settings.
+
+**Common Mistakes:**
+- ❌ Sharing with "Anyone with the link" - This doesn't work for service accounts!
+- ❌ Giving "Viewer" access - Service accounts need "Editor" to upload!
+- ❌ Not sharing at all - Service accounts have no storage quota by default!
 
 ### Step 5: Redeploy
 

@@ -1020,9 +1020,16 @@ class OrganiserManager {
           </div>
           
           <div class="form-group">
-            <label for="editBannerImageUrl">Banner Image URL</label>
-            <input type="url" id="editBannerImageUrl" name="bannerImageUrl" value="${game.banner_image_url || ''}" placeholder="https://example.com/banner.jpg">
-            <small>Upload your banner to a cloud service and paste the URL</small>
+            <label>Banner Image</label>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px dashed #007bff;">
+              <div style="text-align: center;">
+                <div style="font-size: 32px; margin-bottom: 10px;">🎨</div>
+                <p style="margin: 0; color: #666;">
+                  Use "☁️ Upload to Drive" button to update banner with our new drag & drop system
+                </p>
+              </div>
+            </div>
+            <input type="hidden" id="editBannerImageUrl" name="bannerImageUrl" value="${game.banner_image_url || ''}">
           </div>
           
           <div class="form-group">
@@ -1066,9 +1073,16 @@ class OrganiserManager {
         <div class="form-section">
           <h3>Payment & Meeting</h3>
           <div class="form-group">
-            <label for="editPaymentQrCodeUrl">Payment QR Code URL</label>
-            <input type="url" id="editPaymentQrCodeUrl" name="paymentQrCodeUrl" value="${game.payment_qr_code_url || ''}" required>
-            <small>Upload your UPI QR code image and paste the URL</small>
+            <label>Payment QR Code</label>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px dashed #28a745;">
+              <div style="text-align: center;">
+                <div style="font-size: 32px; margin-bottom: 10px;">💳</div>
+                <p style="margin: 0; color: #666;">
+                  Use "☁️ Upload to Drive" button to update QR code with our new drag & drop system
+                </p>
+              </div>
+            </div>
+            <input type="hidden" id="editPaymentQrCodeUrl" name="paymentQrCodeUrl" value="${game.payment_qr_code_url || ''}">
           </div>
           
           <div class="form-row">

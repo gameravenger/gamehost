@@ -254,15 +254,20 @@
                 <div class="game-form-container">
                     <form id="createGameForm">
                         <div class="form-section">
-                            <h3>Game Information</h3>
-                            <div style="margin-bottom: 15px;">
-                                <a href="/image-upload-guide.html" target="_blank" class="btn btn-secondary btn-sm">
-                                    📸 Image Upload Guide
-                                </a>
+                            <h3>🎮 Game Information</h3>
+                            
+                            <!-- New System Banner -->
+                            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 12px; margin-bottom: 25px; text-align: center;">
+                                <div style="font-size: 48px; margin-bottom: 10px;">🚀</div>
+                                <h4 style="margin: 0 0 10px 0; color: white;">NEW: Revolutionary Upload System!</h4>
+                                <p style="margin: 0; opacity: 0.9;">
+                                    Create your game first, then use our new drag & drop interface to upload banners, QR codes, and sheets with zero storage costs!
+                                </p>
                             </div>
+                            
                             <div class="form-group">
                                 <label for="gameName">Game Name</label>
-                                <input type="text" id="gameName" name="gameName" required placeholder="Enter game name">
+                                <input type="text" id="gameName" name="gameName" required placeholder="Enter an exciting game name">
                             </div>
                             
                             <div class="form-group">
@@ -293,7 +298,7 @@
                         </div>
 
                         <div class="form-section">
-                            <h3>Pricing Structure</h3>
+                            <h3>💰 Pricing Structure</h3>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="pricePerSheet1">Price for 1 Sheet (₹)</label>
@@ -311,7 +316,7 @@
                         </div>
 
                         <div class="form-section">
-                            <h3>Game Schedule</h3>
+                            <h3>📅 Game Schedule</h3>
                             <div class="form-row">
                                 <div class="form-group">
                                     <label for="gameDate">Game Date</label>
@@ -330,7 +335,7 @@
                         </div>
 
                         <div class="form-section">
-                            <h3>Payment & Meeting</h3>
+                            <h3>💳 Payment & Meeting</h3>
                             <div class="form-group">
                                 <label>Payment QR Code Upload</label>
                                 <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; border: 2px dashed #28a745;">
@@ -365,7 +370,7 @@
                         </div>
 
                         <div class="form-section">
-                            <h3>Game Sheets</h3>
+                            <h3>📄 Game Sheets</h3>
                             <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; border: 2px dashed #ff6b35; margin-bottom: 20px;">
                                 <div style="text-align: center;">
                                     <div style="font-size: 64px; margin-bottom: 15px;">📄</div>
@@ -423,9 +428,29 @@
                             <input type="hidden" id="autoScannedSheets" name="autoScannedSheets">
                         </div>
 
+                        <!-- Success Preview Section -->
+                        <div style="background: linear-gradient(135deg, #28a745 0%, #20c997 100%); color: white; padding: 25px; border-radius: 12px; margin: 30px 0; text-align: center;">
+                            <div style="font-size: 48px; margin-bottom: 15px;">🎯</div>
+                            <h4 style="margin: 0 0 15px 0; color: white;">What Happens Next?</h4>
+                            <div style="text-align: left; max-width: 600px; margin: 0 auto;">
+                                <p style="margin: 10px 0; opacity: 0.95;">
+                                    <strong>1.</strong> 🎮 Your game will be created instantly<br>
+                                    <strong>2.</strong> ☁️ Click "Upload to Drive" to add banners, QR codes & sheets<br>
+                                    <strong>3.</strong> 📤 Use drag & drop or browse to upload files<br>
+                                    <strong>4.</strong> 🗜️ Files auto-compress (save 30-70% space)<br>
+                                    <strong>5.</strong> 💰 Zero storage costs (uses your Google Drive)<br>
+                                    <strong>6.</strong> 🚀 Game goes live for participants!
+                                </p>
+                            </div>
+                        </div>
+
                         <div class="form-actions">
-                            <button type="submit" class="btn btn-primary">Create Game</button>
-                            <button type="reset" class="btn btn-secondary">Reset Form</button>
+                            <button type="submit" class="btn btn-primary" style="font-size: 18px; padding: 15px 30px; background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%); border: none; border-radius: 8px;">
+                                🚀 Create Game & Start Uploading
+                            </button>
+                            <button type="reset" class="btn btn-secondary" style="margin-left: 15px;">
+                                🔄 Reset Form
+                            </button>
                         </div>
                     </form>
                 </div>

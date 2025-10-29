@@ -1024,7 +1024,7 @@ class OrganiserManager {
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px dashed #007bff;">
               <div style="text-align: center;">
                 <div style="font-size: 32px; margin-bottom: 10px;">🎨</div>
-                <p style="margin: 0; color: #666;">
+                <p style="margin: 0; color: #495057; font-size: 14px;">
                   Use "☁️ Upload to Drive" button to update banner with our new drag & drop system
                 </p>
               </div>
@@ -1077,7 +1077,7 @@ class OrganiserManager {
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; border: 2px dashed #28a745;">
               <div style="text-align: center;">
                 <div style="font-size: 32px; margin-bottom: 10px;">💳</div>
-                <p style="margin: 0; color: #666;">
+                <p style="margin: 0; color: #495057; font-size: 14px;">
                   Use "☁️ Upload to Drive" button to update QR code with our new drag & drop system
                 </p>
               </div>

@@ -350,7 +350,31 @@ class MulterGoogleDriveStorage {
     this.driveStorage = new GoogleDriveStorage();
     this.tempDir = options.tempDir || '/tmp';
     this.compressionQuality = options.compressionQuality || 80;
-    this.parentFolderId = options.parentFolderId || null;
+    
+    // CRITICAL: Extract and validate folder ID
+    const rawFolderId = options.parentFolderId;
+    if (!rawFolderId || rawFolderId.trim() === '') {
+      throw new Error(
+        '❌ GOOGLE_DRIVE_STORAGE_FOLDER_ID is required!\n' +
+        'Service accounts cannot upload to "My Drive" - you must specify a shared folder.\n' +
+        'Set GOOGLE_DRIVE_STORAGE_FOLDER_ID in your environment variables.\n' +
+        'See GOOGLE_DRIVE_SERVICE_ACCOUNT_FIX.md for setup instructions.'
+      );
+    }
+    
+    // Extract folder ID from URL or use as-is
+    this.parentFolderId = this.driveStorage.extractFolderId(rawFolderId);
+    
+    if (!this.parentFolderId) {
+      throw new Error(
+        `❌ Invalid GOOGLE_DRIVE_STORAGE_FOLDER_ID: "${rawFolderId}"\n` +
+        'Please provide either:\n' +
+        '  - Folder ID: 1PIgEhMR2-rVHbbfpELSYDakzYlEkWBXM\n' +
+        '  - Full URL: https://drive.google.com/drive/folders/1PIgEhMR2-rVHbbfpELSYDakzYlEkWBXM'
+      );
+    }
+    
+    console.log(`✅ Google Drive upload folder configured: ${this.parentFolderId}`);
   }
 
   _handleFile(req, file, cb) {

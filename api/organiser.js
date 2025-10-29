@@ -1571,4 +1571,187 @@ router.get('/debug/env-check', authenticateOrganiser, (req, res) => {
   });
 });
 
+// AUTO-FIX ALL GAMES - Fix sheets_folder_id for all organiser's games
+router.post('/games/fix-all-sheets-folders', authenticateOrganiser, async (req, res) => {
+  try {
+    console.log('🔧 AUTO-FIX: Starting bulk fix for all games');
+
+    // Get organiser ID
+    const { data: organiser, error: organiserError } = await supabaseAdmin
+      .from('organisers')
+      .select('id')
+      .eq('user_id', req.user.userId)
+      .single();
+
+    if (organiserError || !organiser) {
+      return res.status(404).json({ error: 'Organiser not found' });
+    }
+
+    // Get ALL games for this organiser that need fixing
+    const { data: games, error: gamesError } = await supabaseAdmin
+      .from('games')
+      .select('id, name, sheets_folder_id, drive_folder_id, individual_sheet_files, sheets_count')
+      .eq('organiser_id', organiser.id)
+      .in('status', ['upcoming', 'live']);
+
+    if (gamesError) {
+      console.error('❌ Error fetching games:', gamesError);
+      return res.status(500).json({ error: 'Failed to fetch games' });
+    }
+
+    console.log(`📊 Found ${games?.length || 0} active games for organiser ${organiser.id}`);
+
+    const results = {
+      total: games?.length || 0,
+      fixed: 0,
+      alreadyOk: 0,
+      needsReupload: 0,
+      details: []
+    };
+
+    // Process each game
+    for (const game of games || []) {
+      const gameResult = {
+        id: game.id,
+        name: game.name,
+        status: '',
+        action: ''
+      };
+
+      // Check if already has sheets_folder_id
+      if (game.sheets_folder_id) {
+        gameResult.status = 'already_ok';
+        gameResult.action = 'No fix needed';
+        results.alreadyOk++;
+      }
+      // If has drive_folder_id, use that
+      else if (game.drive_folder_id) {
+        try {
+          await supabaseAdmin
+            .from('games')
+            .update({
+              sheets_folder_id: game.drive_folder_id,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', game.id);
+
+          gameResult.status = 'fixed';
+          gameResult.action = `Set sheets_folder_id = drive_folder_id`;
+          gameResult.sheets_folder_id = game.drive_folder_id;
+          results.fixed++;
+          console.log(`✅ Fixed game ${game.name}: ${game.drive_folder_id}`);
+        } catch (updateError) {
+          gameResult.status = 'error';
+          gameResult.action = `Failed to update: ${updateError.message}`;
+          console.error(`❌ Failed to fix ${game.name}:`, updateError);
+        }
+      }
+      // Has sheets but no folder IDs - needs re-upload
+      else if (game.sheets_count > 0 || (game.individual_sheet_files && Object.keys(game.individual_sheet_files).length > 0)) {
+        gameResult.status = 'needs_reupload';
+        gameResult.action = 'Re-upload sheets through dashboard';
+        results.needsReupload++;
+      }
+      // No sheets uploaded yet
+      else {
+        gameResult.status = 'no_sheets';
+        gameResult.action = 'Upload sheets first';
+        results.needsReupload++;
+      }
+
+      results.details.push(gameResult);
+    }
+
+    console.log(`🎯 AUTO-FIX COMPLETE: Fixed ${results.fixed}, Already OK ${results.alreadyOk}, Needs reupload ${results.needsReupload}`);
+
+    res.json({
+      success: true,
+      message: `Processed ${results.total} games`,
+      results: results,
+      summary: {
+        total: results.total,
+        fixed: results.fixed,
+        alreadyOk: results.alreadyOk,
+        needsReupload: results.needsReupload,
+        successRate: results.total > 0 ? Math.round((results.fixed + results.alreadyOk) / results.total * 100) : 0
+      }
+    });
+
+  } catch (error) {
+    console.error('💥 Auto-fix error:', error);
+    res.status(500).json({
+      error: 'Auto-fix failed',
+      message: error.message
+    });
+  }
+});
+
+// AUTO-FIX SINGLE GAME - Fix sheets_folder_id for one game
+router.post('/games/:gameId/fix-sheets-folder', authenticateOrganiser, async (req, res) => {
+  try {
+    const { gameId } = req.params;
+
+    // Verify game belongs to organiser
+    const { data: organiser } = await supabaseAdmin
+      .from('organisers')
+      .select('id')
+      .eq('user_id', req.user.userId)
+      .single();
+
+    const { data: game, error: gameError } = await supabaseAdmin
+      .from('games')
+      .select('id, name, organiser_id, sheets_folder_id, drive_folder_id, individual_sheet_files')
+      .eq('id', gameId)
+      .single();
+
+    if (gameError || !game) {
+      return res.status(404).json({ error: 'Game not found' });
+    }
+
+    if (game.organiser_id !== organiser.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Check if already has sheets_folder_id
+    if (game.sheets_folder_id) {
+      return res.json({
+        success: true,
+        message: 'Game already has sheets_folder_id',
+        sheets_folder_id: game.sheets_folder_id
+      });
+    }
+
+    // If has drive_folder_id, use that
+    if (game.drive_folder_id) {
+      await supabaseAdmin
+        .from('games')
+        .update({
+          sheets_folder_id: game.drive_folder_id,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', gameId);
+
+      return res.json({
+        success: true,
+        message: 'Fixed sheets_folder_id',
+        sheets_folder_id: game.drive_folder_id
+      });
+    }
+
+    // No folder ID available - needs re-upload
+    return res.status(400).json({
+      error: 'No folder ID available',
+      message: 'Please re-upload your sheets through the dashboard',
+      suggestion: 'The sheets need to be uploaded again to set the folder ID correctly'
+    });
+
+  } catch (error) {
+    console.error('💥 Single game fix error:', error);
+    res.status(500).json({
+      error: 'Fix failed',
+      message: error.message
+    });
+  }
+});
+
 module.exports = router;

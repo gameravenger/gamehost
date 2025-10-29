@@ -472,18 +472,45 @@ class GoogleDriveStorage {
 // Multer storage engine for Google Drive
 class MulterGoogleDriveStorage {
   constructor(options = {}) {
+    console.log('🔧 MulterGoogleDriveStorage constructor called with options:', {
+      tempDir: options.tempDir,
+      compressionQuality: options.compressionQuality,
+      parentFolderId: options.parentFolderId,
+      hasParentFolderId: !!options.parentFolderId
+    });
+    
     this.driveStorage = new GoogleDriveStorage();
     this.tempDir = options.tempDir || '/tmp';
     this.compressionQuality = options.compressionQuality || 80;
     
     // CRITICAL: Extract and validate folder ID
     const rawFolderId = options.parentFolderId;
+    
+    console.log('🔍 Raw folder ID value:', {
+      value: rawFolderId,
+      type: typeof rawFolderId,
+      isUndefined: rawFolderId === undefined,
+      isNull: rawFolderId === null,
+      isEmpty: rawFolderId === '',
+      length: rawFolderId ? rawFolderId.length : 0
+    });
+    
     if (!rawFolderId || rawFolderId.trim() === '') {
+      console.error('❌ CRITICAL ERROR: parentFolderId is missing or empty!');
+      console.error('   Received value:', rawFolderId);
+      console.error('   Type:', typeof rawFolderId);
+      console.error('   From environment variable: GOOGLE_DRIVE_STORAGE_FOLDER_ID');
+      console.error('   Current env value:', process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID);
+      
       throw new Error(
         '❌ GOOGLE_DRIVE_STORAGE_FOLDER_ID is required!\n' +
+        `Received value: ${JSON.stringify(rawFolderId)}\n` +
+        `Type: ${typeof rawFolderId}\n` +
+        `Environment variable value: ${process.env.GOOGLE_DRIVE_STORAGE_FOLDER_ID || 'NOT SET'}\n` +
         'Service accounts cannot upload to "My Drive" - you must specify a shared folder.\n' +
         'Set GOOGLE_DRIVE_STORAGE_FOLDER_ID in your environment variables.\n' +
-        'See GOOGLE_DRIVE_SERVICE_ACCOUNT_FIX.md for setup instructions.'
+        'See GOOGLE_DRIVE_SERVICE_ACCOUNT_FIX.md for setup instructions.\n' +
+        'Visit /test-env.html to verify your environment variables.'
       );
     }
     
@@ -491,6 +518,7 @@ class MulterGoogleDriveStorage {
     this.parentFolderId = this.driveStorage.extractFolderId(rawFolderId);
     
     if (!this.parentFolderId) {
+      console.error('❌ Failed to extract folder ID from:', rawFolderId);
       throw new Error(
         `❌ Invalid GOOGLE_DRIVE_STORAGE_FOLDER_ID: "${rawFolderId}"\n` +
         'Please provide either:\n' +

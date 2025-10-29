@@ -976,10 +976,12 @@ router.post('/games/:gameId/upload-to-drive', authenticateOrganiser, (req, res, 
       updateData.drive_folder_id = gameFolders.gameFolderId;
       updateData.drive_folder_name = gameFolders.gameFolderName;
       
-      // For sheets, also update total_sheets
+      // For sheets, also update total_sheets and sheets_folder_id
       if (fileType === 'sheets') {
         updateData.individual_sheet_files = processedFiles;
         updateData.total_sheets = uploadedItems.length;
+        updateData.sheets_folder_id = targetFolderId; // CRITICAL: Required for downloads
+        console.log(`✅ Set sheets_folder_id to: ${targetFolderId}`);
       }
       
       // For banners, update the main banner_image_url with thumbnail format (first banner)

@@ -14,15 +14,50 @@ class GoogleDriveStorage {
   async initializeAuth() {
     try {
       // Initialize Google Drive API with service account or OAuth2
-      this.auth = new google.auth.GoogleAuth({
-        keyFile: process.env.GOOGLE_SERVICE_ACCOUNT_KEY, // Path to service account JSON
-        scopes: ['https://www.googleapis.com/auth/drive']
-      });
-
+      // Support both: JSON string (Vercel env var) or file path (local dev)
+      const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+      
+      if (!serviceAccountKey) {
+        throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable not set');
+      }
+      
+      let authConfig;
+      
+      // Check if it's a JSON string or file path
+      if (serviceAccountKey.trim().startsWith('{')) {
+        // It's a JSON string - parse and use credentials directly
+        console.log('📝 Using Google service account from JSON string (Vercel mode)');
+        const credentials = JSON.parse(serviceAccountKey);
+        
+        authConfig = {
+          credentials: credentials,
+          scopes: ['https://www.googleapis.com/auth/drive']
+        };
+      } else {
+        // It's a file path - use keyFile
+        console.log('📁 Using Google service account from file path (local mode)');
+        
+        // Check if file exists
+        if (!fs.existsSync(serviceAccountKey)) {
+          throw new Error(`Service account key file not found: ${serviceAccountKey}`);
+        }
+        
+        authConfig = {
+          keyFile: serviceAccountKey,
+          scopes: ['https://www.googleapis.com/auth/drive']
+        };
+      }
+      
+      this.auth = new google.auth.GoogleAuth(authConfig);
       this.drive = google.drive({ version: 'v3', auth: this.auth });
+      
       console.log('✅ Google Drive Storage initialized successfully');
     } catch (error) {
-      console.error('❌ Google Drive Storage initialization failed:', error);
+      console.error('❌ Google Drive Storage initialization failed:', error.message);
+      console.error('💡 TIP: Set GOOGLE_SERVICE_ACCOUNT_KEY to either:');
+      console.error('   1. Full JSON string (for Vercel): {"type":"service_account",...}');
+      console.error('   2. File path (for local): /path/to/service-account.json');
+      throw error;
     }
   }
 

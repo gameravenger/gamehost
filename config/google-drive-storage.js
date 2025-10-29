@@ -202,7 +202,9 @@ class GoogleDriveStorage {
       const response = await this.drive.files.create({
         resource: fileMetadata,
         media: media,
-        fields: 'id, name, size, createdTime, webViewLink, webContentLink'
+        fields: 'id, name, size, createdTime, webViewLink, webContentLink',
+        supportsAllDrives: true,  // CRITICAL: Required for Shared Drives
+        supportsTeamDrives: true  // For backward compatibility
       });
 
       // Make file publicly accessible
@@ -211,7 +213,9 @@ class GoogleDriveStorage {
         resource: {
           role: 'reader',
           type: 'anyone'
-        }
+        },
+        supportsAllDrives: true,  // CRITICAL: Required for Shared Drives
+        supportsTeamDrives: true  // For backward compatibility
       });
 
       console.log(`✅ UPLOADED: ${fileName} - ID: ${response.data.id}`);
@@ -287,7 +291,9 @@ class GoogleDriveStorage {
       // Get current parents
       const file = await this.drive.files.get({
         fileId: fileId,
-        fields: 'parents, name'
+        fields: 'parents, name',
+        supportsAllDrives: true,  // CRITICAL: Required for Shared Drives
+        supportsTeamDrives: true  // For backward compatibility
       });
 
       const previousParents = file.data.parents ? file.data.parents.join(',') : '';
@@ -297,7 +303,9 @@ class GoogleDriveStorage {
         fileId: fileId,
         addParents: newParentFolderId,
         removeParents: previousParents,
-        fields: 'id, parents, name'
+        fields: 'id, parents, name',
+        supportsAllDrives: true,  // CRITICAL: Required for Shared Drives
+        supportsTeamDrives: true  // For backward compatibility
       });
 
       console.log(`📦 MOVED: ${file.data.name} to folder ${newParentFolderId}`);
@@ -317,7 +325,9 @@ class GoogleDriveStorage {
       }
 
       await this.drive.files.delete({
-        fileId: fileId
+        fileId: fileId,
+        supportsAllDrives: true,  // CRITICAL: Required for Shared Drives
+        supportsTeamDrives: true  // For backward compatibility
       });
 
       console.log(`🗑️ DELETED: File ${fileId} from Google Drive`);
@@ -345,7 +355,10 @@ class GoogleDriveStorage {
         const existingFolders = await this.drive.files.list({
           q: query,
           fields: 'files(id, name)',
-          spaces: 'drive'
+          spaces: 'drive',
+          supportsAllDrives: true,  // CRITICAL: Required for Shared Drives
+          supportsTeamDrives: true,  // For backward compatibility
+          includeItemsFromAllDrives: true  // Include items from Shared Drives
         });
         
         if (existingFolders.data.files && existingFolders.data.files.length > 0) {
@@ -363,7 +376,9 @@ class GoogleDriveStorage {
 
       const response = await this.drive.files.create({
         resource: fileMetadata,
-        fields: 'id, name'
+        fields: 'id, name',
+        supportsAllDrives: true,  // CRITICAL: Required for Shared Drives
+        supportsTeamDrives: true  // For backward compatibility
       });
 
       console.log(`📁 CREATED FOLDER: ${folderName} - ID: ${response.data.id}`);
@@ -433,7 +448,10 @@ class GoogleDriveStorage {
       const response = await this.drive.files.list({
         q: query,
         fields: 'files(id, name, createdTime, size)',
-        pageSize: 1000
+        pageSize: 1000,
+        supportsAllDrives: true,  // CRITICAL: Required for Shared Drives
+        supportsTeamDrives: true,  // For backward compatibility
+        includeItemsFromAllDrives: true  // Include files from Shared Drives
       });
 
       return response.data.files || [];

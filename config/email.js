@@ -16,7 +16,7 @@ const createTransporter = () => {
 const sendAdminNotification = async (subject, htmlContent, plainTextContent = null) => {
   try {
     const transporter = createTransporter();
-    const adminEmail = process.env.ADMIN_EMAIL || 'managervcreation@gmail.com';
+    const adminEmail = process.env.ADMIN_EMAIL || 'gamer.avenger744@gmail.com';
     
     const mailOptions = {
       from: process.env.SUPPORT_EMAIL || 'support@gameblast.in',
